@@ -1,0 +1,81 @@
+﻿<?xml version="1.0" encoding="UTF-8"?>
+<configuration>
+    <oatconfig>
+        <licensefile></licensefile>
+        <policylist>
+            <policy
+                    desc=""
+                    name="projectPolicy">
+                <policyitem
+                        desc="Developed By OpenValley Digital Co., Ltd."
+                        filefilter="copyrightPolicyFilter"
+                        group="defaultGroup"
+                        name="Hunan OpenValley Digital Industry Development Co., Ltd."
+                        path=".*"
+                        rule="may"
+                        type="copyright"/>
+            </policy>
+            <policy name="projectPolicy" desc="">
+                <policyitem type="license" name="MIT" path=".*" group="defaultGroup" filefilter="defaultPolicyFilter" desc="当前项目兼容此协议" />
+                <policyitem type="compatibility" name="MIT" path=".*" desc="不影响兼容性"/>
+                <policyitem type="compatibility" name="Apache-2.0" path=".*" desc="不影响兼容性"/>
+            </policy>
+        </policylist>
+        <filefilterlist>
+            <filefilter name="copyrightPolicyFilter" desc="Filters for compatibility，license header policies">
+                <filteritem type="filename" name="LICENSE" desc="syncfusion_flutter_charts开源库代码（或原库代码文件），原本就无版权头，不做侵入式修改"/>
+                <filteritem type="filepath" name="example/ios/.*" desc="syncfusion_flutter_charts开源库代码（或原库代码文件），原本就无协议头，不做侵入式修改"/>
+                <filteritem type="filepath" name="example/android/.*" desc="syncfusion_flutter_charts开源库代码（或原库代码文件），原本就无协议头，不做侵入式修改"/>
+                <filteritem type="filepath" name="example/macos/.*" desc="syncfusion_flutter_charts开源库代码（或原库代码文件），原本就无协议头，不做侵入式修改"/>
+                <filteritem type="filepath" name="example/linux/.*" desc="syncfusion_flutter_charts开源库代码（或原库代码文件），原本就无协议头，不做侵入式修改"/>			
+                <filteritem type="filepath" name="example/windows/.*" desc="syncfusion_flutter_charts开源库代码（或原库代码文件），原本就无协议头，不做侵入式修改"/>			
+                <filteritem type="filepath" name="example/web/.*" desc="syncfusion_flutter_charts开源库代码（或原库代码文件），原本就无协议头，不做侵入式修改"/>				
+                <filteritem type="filepath" name="android/.*" desc="syncfusion_flutter_charts开源库代码（或原库代码文件），原本就无协议头，不做侵入式修改"/>
+                <filteritem type="filename" name="*.dart" desc="syncfusion_flutter_charts开源库代码（或原库代码文件），原本就无协议头，不做侵入式修改"/>
+                <filteritem type="filename" name="*.yaml" desc="syncfusion_flutter_charts开源库代码（或原库代码文件），原本就无协议头，不做侵入式修改"/>
+                <filteritem type="filename" name="*.lock" desc="syncfusion_flutter_charts开源库代码（或原库代码文件），原本就无协议头，不做侵入式修改"/>
+                <filteritem type="filepath" name=".metadata" desc="syncfusion_flutter_charts开源库代码（或原库代码文件），原本就无版权头，不做侵入式修改"/>
+                <filteritem type="filepath" name="example/.flutter-plugins" desc="syncfusion_flutter_charts开源库代码（或原库代码文件），版权头维持原样，不做侵入式修改"/>
+                <filteritem type="filepath" name="example/.flutter-plugins-dependencies" desc="syncfusion_flutter_charts开源库代码（或原库代码文件），版权头维持原样，不做侵入式修改"/>
+                <filteritem type="filepath" name="assets/.*" desc="syncfusion_flutter_charts开源库代码（或原库代码文件），版权头维持原样，不做侵入式修改"/>
+                <filteritem type="filepath" name="ohos/.metadata" desc="syncfusion_flutter_charts开源库代码（或原库代码文件），原本就无版权头，不做侵入式修改"/>
+                <filteritem type="filepath" name="ohos/ohos/hvigorfile.ts" desc="syncfusion_flutter_charts开源库代码（或原库代码文件），版权头维持原样，不做侵入式修改"/>
+                <filteritem type="filename" name="*.json5" desc="syncfusion_flutter_charts开源库代码（或原库代码文件），原本就无协议头，不做侵入式修改"/>
+                <filteritem type="filepath" name="example/.flutter-plugins" desc="syncfusion_flutter_charts开源库代码（或原库代码文件），版权头维持原样，不做侵入式修改"/>
+                <filteritem type="filepath" name="example/.flutter-plugins-dependencies" desc="syncfusion_flutter_charts开源库代码（或原库代码文件），版权头维持原样，不做侵入式修改"/>
+            </filefilter>
+
+            <filefilter name="defaultPolicyFilter" desc="Filters for compatibility，license header policies">
+                <filteritem type="filepath" name="example/ios/.*" desc="syncfusion_flutter_charts开源库代码（或原库代码文件），原本就无协议头，不做侵入式修改"/>
+                <filteritem type="filepath" name="example/android/.*" desc="syncfusion_flutter_charts开源库代码（或原库代码文件），原本就无协议头，不做侵入式修改"/>
+                <filteritem type="filepath" name="example/macos/.*" desc="syncfusion_flutter_charts开源库代码（或原库代码文件），原本就无协议头，不做侵入式修改"/>
+                <filteritem type="filepath" name="example/linux/.*" desc="syncfusion_flutter_charts开源库代码（或原库代码文件），原本就无协议头，不做侵入式修改"/>
+                <filteritem type="filepath" name="example/windows/.*" desc="syncfusion_flutter_charts开源库代码（或原库代码文件），原本就无协议头，不做侵入式修改"/>
+                <filteritem type="filepath" name="example/web/.*" desc="syncfusion_flutter_charts开源库代码（或原库代码文件），原本就无协议头，不做侵入式修改"/>
+                <filteritem type="filepath" name="android/.*" desc="syncfusion_flutter_charts开源库代码（或原库代码文件），原本就无协议头，不做侵入式修改"/>
+                <filteritem type="filename" name="*.dart" desc="syncfusion_flutter_charts开源库代码（或原库代码文件），原本就无协议头，不做侵入式修改"/>
+                <filteritem type="filename" name="*.yaml" desc="syncfusion_flutter_charts开源库代码（或原库代码文件），原本就无协议头，不做侵入式修改"/>
+                <filteritem type="filename" name="*.lock" desc="syncfusion_flutter_charts开源库代码（或原库代码文件），原本就无协议头，不做侵入式修改"/>
+                <filteritem type="filepath" name=".metadata" desc="syncfusion_flutter_charts开源库代码（或原库代码文件），原本就无版权头，不做侵入式修改"/>
+                <filteritem type="filepath" name="ohos/.metadata" desc="syncfusion_flutter_charts开源库代码（或原库代码文件），原本就无版权头，不做侵入式修改"/>
+                <filteritem type="filename" name="LICENSE" desc="syncfusion_flutter_charts开源库代码（或原库代码文件），原本就无版权头，不做侵入式修改"/>
+                <filteritem type="filepath" name="example/.flutter-plugins" desc="syncfusion_flutter_charts开源库代码（或原库代码文件），原本就无协议头，不做侵入式修改"/>
+                <filteritem type="filepath" name="example/.flutter-plugins-dependencies" desc="syncfusion_flutter_charts开源库代码（或原库代码文件），原本就无协议头，不做侵入式修改"/>
+		<filteritem type="filepath" name="assets/.*" desc="syncfusion_flutter_charts开源库代码（或原库代码文件），版权头维持原样，不做侵入式修改"/>
+                <filteritem type="filepath" name="ohos/ohos/hvigorfile.ts" desc="syncfusion_flutter_charts开源库代码（或原库代码文件），版权头维持原样，不做侵入式修改"/>
+                <filteritem type="filename" name="*.metadata" desc="syncfusion_flutter_charts开源库代码（或原库代码文件），原本就无协议头，不做侵入式修改"/>
+                <filteritem type="filename" name="*.json5" desc="syncfusion_flutter_charts开源库代码（或原库代码文件），原本就无协议头，不做侵入式修改"/>
+                <filteritem type="filepath" name="example/.flutter-plugins" desc="syncfusion_flutter_charts开源库代码（或原库代码文件），版权头维持原样，不做侵入式修改"/>
+                <filteritem type="filepath" name="example/.flutter-plugins-dependencies" desc="syncfusion_flutter_charts开源库代码（或原库代码文件），版权头维持原样，不做侵入式修改"/>
+            </filefilter>
+
+            <filefilter name="binaryFileTypePolicyFilter" desc="Filters for binary file policies">
+                <filteritem type="filename" name="*.pdf|*.png|*.txt|*.docx|*.gif" desc="desc files"/>
+                <filteritem type="filename" name="*.jar|*.so|*.aar" desc='二进制文件,不影响兼容性'/>
+                <filteritem type="filename" name="*.dart" desc='开源库代码（或原库代码文件），原本就无协议头，不做侵入式修改'/>
+                <filteritem type="filepath" name="example/windows/runner/resources/.*" desc="syncfusion_flutter_charts图片资源文件，协议为MIT"/>
+            </filefilter>
+
+        </filefilterlist>
+    </oatconfig>
+</configuration>

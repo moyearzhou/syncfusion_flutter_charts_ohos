@@ -1,0 +1,35 @@
+name: syncfusion_flutter_charts_ohos
+description: "Retrieve Ohos device user agents in Flutter."
+version: 1.0.0
+homepage: https://gitee.com/openharmony-sig/fluttertpc_fsyncfusion_flutter_charts
+
+screenshots:
+  - description: 'This screenshot shows the area type charts image.'
+    path: screenshots/flutter-area-type-charts.png
+  - description: 'This screenshot shows the circular charts image.'
+    path: screenshots/flutter-circular-charts.png
+  - description: 'This screenshot shows the column type charts image.'
+    path: screenshots/flutter-column-type-charts.png
+  - description: 'This screenshot shows the line type charts image.'
+    path: screenshots/flutter-line-type-charts.png
+  - description: 'This screenshot shows the sfcartesian charts image.'
+    path: screenshots/flutter-SfCaretesian-charts.png
+  - description: 'This screenshot shows the sparkcharts image.'
+    path: screenshots/flutter-SparkChart.png
+
+environment:
+  sdk: '>=2.17.0 <4.0.0'
+
+dependencies:
+  flutter_test:
+    sdk: flutter
+  intl: '>=0.18.1 <0.20.0'
+  vector_math: ">=2.1.0 <=3.0.0"
+  syncfusion_flutter_core: ^26.2.10
+
+flutter:
+  plugin:
+    platforms:
+      ohos:
+        package: com.example.syncfusion_flutter_charts_ohos
+        pluginClass: SyncfusionFlutterChartsOhosPlugin

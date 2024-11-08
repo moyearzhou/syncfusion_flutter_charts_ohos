@@ -1,0 +1,10 @@
+{
+  "module": {
+    "name": "syncfusion_flutter_charts_ohos",
+    "type": "har",
+    "deviceTypes": [
+      "default",
+      "tablet"
+    ]
+  }
+}

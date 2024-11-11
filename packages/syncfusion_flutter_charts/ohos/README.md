@@ -327,9 +327,3 @@ Widget build(BuildContext context) {
 
 * For any other queries, reach our [Syncfusion support team](https://support.syncfusion.com/support/tickets/create?utm_source=pubdev&utm_medium=listing&utm_campaign=flutter-charts-pubdev) or post the queries through the [Community forums](https://www.syncfusion.com/forums?utm_source=pubdev&utm_medium=listing&utm_campaign=flutter-charts-pubdev) and submit a feature request or a bug through our [Feedback portal](https://www.syncfusion.com/feedback/flutter?utm_source=pubdev&utm_medium=listing&utm_campaign=flutter-charts-pubdev).
 * To renew the subscription, click [renew](https://www.syncfusion.com/sales/products?utm_source=pubdev&utm_medium=listing&utm_campaign=flutter-charts-pubdev) or contact our sales team at salessupport@syncfusion.com | Toll Free: 1-888-9 DOTNET.
-
-## About Syncfusion
-
-Founded in 2001 and headquartered in Research Triangle Park, N.C., Syncfusion has more than 2,000 customers and more than 1 million users, including large financial institutions, Fortune 500 companies.
-
-Currently, we offer over 1,000 controls and frameworks web development, including [ASP.NET Core](https://www.syncfusion.com/aspnet-core-ui-controls [Angular](https://www.syncfusion.com/angular-ui-components), [React](://www.syncfusion.com/react-components), [Vue](https://www.syncfusion.com/vue-ui-components), and more.

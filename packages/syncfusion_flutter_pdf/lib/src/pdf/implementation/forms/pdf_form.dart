@@ -1020,6 +1020,14 @@ class PdfFormHelper {
           } else {
             helper.save();
           }
+          if (_fields?.count == 0) {
+            final int? index = crossTable!.items!.lookFor(helper.dictionary!);
+            dictionary?.clear();
+            (sender as PdfDictionary).remove(PdfDictionaryProperties.acroForm);
+            if (index != -1) {
+              crossTable!.items!.objectCollection!.removeAt(index!);
+            }
+          }
         }
         ++i;
       }
@@ -1338,30 +1346,9 @@ class PdfFormHelper {
       }
       helper.dictionary!.isSkip = true;
       fields.changed = true;
-      if (!formHasKids ||
+      if (!(!formHasKids ||
           !helper.dictionary!.items!
-              .containsKey(PdfName(PdfDictionaryProperties.parent))) {
-        for (int i = 0; i < fields.count; i++) {
-          final IPdfPrimitive? fieldDictionary =
-              PdfCrossTable.dereference(crossTable!.getObject(fields[i]));
-          final PdfName kidsName = PdfName(PdfDictionaryProperties.kids);
-          if (fieldDictionary != null &&
-              fieldDictionary is PdfDictionary &&
-              fieldDictionary.containsKey(kidsName)) {
-            final PdfArray kids =
-                crossTable!.getObject(fieldDictionary[kidsName])! as PdfArray;
-            for (int i = 0; i < kids.count; i++) {
-              final IPdfPrimitive? obj = kids[i];
-              if (obj != null &&
-                  obj is PdfReferenceHolder &&
-                  obj.object == helper.dictionary) {
-                kids.remove(obj);
-                break;
-              }
-            }
-          }
-        }
-      } else {
+              .containsKey(PdfName(PdfDictionaryProperties.parent)))) {
         if (helper.dictionary!.items!
             .containsKey(PdfName(PdfDictionaryProperties.parent))) {
           final PdfDictionary dic =

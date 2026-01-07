@@ -1,3 +1,124 @@
+﻿## [29.1.38] - 04/15/2025
+
+**Bugs**
+
+* Resolved an issue where the null check operator was incorrectly used on a nullable value.
+* Resolved an issue where the PDF was shifting towards the top right corner when drawing existing page templates on PDFs.
+* Exception occurs when getting the bounds of the text box form field item in a document has been resolved.
+
+## [29.1.37] - 04/08/2025
+
+**Bugs**
+
+* Resolved the invalid cross reference table issue occurs while loading the specific PDF document.
+* Resolved the Layer name not preserved properly while removing layers in the PDF document
+
+## [29.1.35] - 04/01/2025
+
+**Bugs**
+
+* Resolved the exception that occurred while decrypting PDF files on the Flutter web platform.
+
+## [29.1.33] - 03/25/2025
+
+**General**
+
+*  The compatible version of our Flutter PDF library has been updated to Flutter SDK 3.29.0.
+*  The Syncfusion<sup>&reg;</sup> Flutter PDF example sample have been updated to support [kotlin build scripts](https://docs.flutter.dev/release/breaking-changes/flutter-gradle-plugin-apply) in Android platform.
+*  The Syncfusion<sup>&reg;</sup> Flutter PDF example sample have been updated to support [Swift package manager](https://docs.flutter.dev/packages-and-plugins/swift-package-manager/for-app-developers) in macOS and iOS platforms.
+
+**Bugs**
+
+* Fixed incorrect TextWord bounds when extracting text from a cropped PDF document.
+
+## [28.2.9] - 03/04/2025
+
+**General**
+
+* The minimum Dart version of our Flutter widgets has been updated to 3.4 from 3.3.
+
+**Bugs**
+
+* Resolved the TypeError occurs when getting the bounds of the form field in a specific document
+
+## [28.2.7] - 02/25/2025
+
+**Bugs**
+
+* Resolved the Performance issue occurs while decrypting the pdf
+
+## [28.2.5] - 02/11/2025
+
+**Bugs**
+
+* Resolved the Format exception occurs while extracting the text from the PDF document
+
+## [28.2.4] - 02/04/2025
+
+**Bugs**
+
+* Resolved the preservation issue when filling the multiline text box field.
+* Typecasting issue occurs while loading the checkbox fields in the PDF document has been resolved.
+
+## [28.1.39] - 01/14/2025
+
+**Bugs**
+
+* Resolved an issue where Unicode characters were not correctly recognized during text extraction from PDF documents.
+
+## [28.1.38] - 01/07/2025
+
+**Bugs**
+
+* The preservation issue encountered when adding annotations to a document has been resolved.
+
+## [27.2.3] - 11/22/2024
+
+**Bugs**
+
+* The issue of the signature appearance being duplicated when viewing the resultant PDF in the Syncfusion<sup>&reg;</sup> viewer has been resolved.
+
+## [27.2.2] - 11/15/2024
+
+**Bugs**
+
+* The format exception that occurred while signing the document with a specific certificate using an external signer has been resolved.
+
+## [27.1.58] - 11/5/2024
+
+**Bugs**
+
+* The issue of an exception occurring when drawing emoji symbols in PDF form fields has been resolved.
+
+## [27.1.55] - 10/22/2024
+
+**Bugs**
+
+* Type casting issue occurs while extracting text lines from a specific PDF document has been resolved.
+
+## [27.1.52] - 10/08/2024
+
+**Bugs**
+
+* The issue of the file being corrupted while inserting a page into an existing PDF document has been resolved.
+
+## [27.1.50] - 09/24/2024
+
+**Bugs**
+
+* Type casting issue occurs while loading annotations from the PDF document has been resolved.
+* The issue where file size did not decrease after removing pages from the PDF document has been resolved.
+
+## [26.2.14] - 09/10/2024
+
+**General**
+
+* The compatible version of our Flutter PDF library has been updated to Flutter SDK 3.24.0.
+
+**Bugs**
+
+* The issue of incorrect bounds being retrieved from text markup annotations created with the Firefox PDF viewer has been resolved.
+
 ## [26.2.10] - 08/20/2024
 
 **Bugs**
@@ -517,7 +638,7 @@
 
 Initial release
 
-**Features** 
+**Features**
 
 * Provided the support for creating a PDF document with pages and sections.
 * Provided the support for adding text, images, shapes, and more.
@@ -531,6 +652,6 @@ Initial release
 * Provided the support for creating bookmarks to the PDF.
 * Provided the support for drawing images (JPEG and PNG only) to the PDF document.
 * Provided the support for adding hyperlinks and internal document navigations.
-* Provided the support for color, pen, and brushes. 
+* Provided the support for color, pen, and brushes.
 * Provided the support for adding Chinese, Japanese, and Korean text with the standard CJK fonts.
 * Provided the support for creating and drawing PdfTemplates.

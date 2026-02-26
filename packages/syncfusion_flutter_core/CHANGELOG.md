@@ -1,10 +1,48 @@
-## Unreleased
+﻿## [29.1.38] - 04/15/2025
+
+**General**
+
+*  The compatible version of all our Flutter widgets has been updated to Flutter SDK 3.29.0.
+*  The Syncfusion<sup>&reg;</sup> Flutter core example sample have been updated to support [kotlin build scripts](https://docs.flutter.dev/release/breaking-changes/flutter-gradle-plugin-apply) in Android platform.
+*  The Syncfusion<sup>&reg;</sup> Flutter core example sample have been updated to support [Swift package manager](https://docs.flutter.dev/packages-and-plugins/swift-package-manager/for-app-developers) in macOS and iOS platforms.
+
+### Breaking Changes
+
+Following breaking changes will occur in core.
+
+## SfChatThemeData:
+
+- The `outgoingBubbleContentBackgroundColor` property has been renamed to `outgoingMessageBackgroundColor`.
+- The `incomingBubbleContentBackgroundColor` property has been renamed to `incomingMessageBackgroundColor`.
+- The `outgoingBubbleContentShape` property has been renamed to `outgoingMessageShape`.
+- The `incomingBubbleContentShape` property has been renamed to `incomingMessageShape`.
+
+## SfAIAssistViewThemeData:
+
+- The `requestBubbleContentBackgroundColor` property has been renamed to `requestMessageBackgroundColor`.
+- The `responseBubbleContentBackgroundColor` property has been renamed to `responseMessageBackgroundColor`.
+- The `requestBubbleContentShape` property has been renamed to `requestMessageShape`.
+- The `responseBubbleContentShape` property has been renamed to `responseMessageShape`.
+
+## [28.2.6] - 18/02/2025
+
+**General**
+
+* The minimum Dart version of our Flutter widgets has been updated to 3.4 from 3.3.
+
+## [28.1.36] - 12/24/2024
+
+**General**
+
+* The compatible version of all our Flutter widgets has been updated to Flutter SDK 3.27.0.
+
+## [29.1.38] - 04/15/2025
 
 **General**
 
 * The compatible version of all our Flutter widgets has been updated to Flutter SDK 3.24.0.
   
-## Unreleased
+## [29.1.38] - 04/15/2025
 
 **General**
 * Provided th​e Material 3 themes support.
@@ -23,7 +61,7 @@
 
 **Breaking changes**
 
-* The license key is not required now to run the application with our widgets. However, you need to still have either Syncfusion commercial license or community license to use our widgets and libraries.
+* The license key is not required now to run the application with our widgets. However, you need to still have either Syncfusion<sup>&reg;</sup> commercial license or community license to use our widgets and libraries.
 
 ## [18.2.59] - 09/23/2020
 

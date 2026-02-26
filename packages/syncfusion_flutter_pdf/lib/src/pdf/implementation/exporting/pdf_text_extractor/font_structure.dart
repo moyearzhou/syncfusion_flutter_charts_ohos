@@ -7,6 +7,7 @@ import '../../graphics/fonts/pdf_font.dart';
 import '../../graphics/fonts/pdf_standard_font.dart';
 import '../../io/decode_big_endian.dart';
 import '../../io/pdf_constants.dart';
+import '../../io/pdf_cross_table.dart';
 import '../../primitives/pdf_array.dart';
 import '../../primitives/pdf_dictionary.dart';
 import '../../primitives/pdf_name.dart';
@@ -177,6 +178,9 @@ class FontStructure {
 
   /// internal field
   bool isLayout = false;
+
+  /// internal field
+  bool macRomanEncoded = false;
 
 //Properties
   /// internal property
@@ -1101,9 +1105,14 @@ class FontStructure {
           }
         } else if (fontDictionary[PdfDictionaryProperties.encoding]
             is PdfReferenceHolder) {
-          baseFontDict = (fontDictionary[PdfDictionaryProperties.encoding]!
-                  as PdfReferenceHolder)
-              .object as PdfDictionary?;
+          final IPdfPrimitive? primitive = PdfCrossTable.dereference(
+              fontDictionary[PdfDictionaryProperties.encoding]);
+          if (primitive != null && primitive is PdfName) {
+            baseFont = primitive;
+            fontEncoding = baseFont.name;
+          } else if (primitive != null && primitive is PdfDictionary) {
+            baseFontDict = primitive;
+          }
         }
         if (baseFontDict != null &&
             baseFontDict.containsKey(PdfDictionaryProperties.type)) {
@@ -1386,8 +1395,12 @@ class FontStructure {
                           }
                           continue;
                         }
-                        if (!mapTable.containsKey(
-                            int.parse(tmpList[0], radix: 16).toSigned(64))) {
+                        if (tmpList.length > 1 &&
+                            tmpList[0] != '' &&
+                            tmpList[1] != '' &&
+                            !mapTable.containsKey(
+                                int.parse(tmpList[0], radix: 16)
+                                    .toSigned(64))) {
                           final String mapValue = String.fromCharCode(
                               int.parse(tmpList[1], radix: 16).toSigned(64));
                           mapTable[int.parse(tmpList[0], radix: 16)
@@ -1602,9 +1615,11 @@ class FontStructure {
     if (fontDictionary.containsKey(PdfDictionaryProperties.encoding)) {
       if (fontDictionary[PdfDictionaryProperties.encoding]
           is PdfReferenceHolder) {
-        encodingDictionary = (fontDictionary[PdfDictionaryProperties.encoding]!
-                as PdfReferenceHolder)
-            .object as PdfDictionary?;
+        final IPdfPrimitive? primitive = PdfCrossTable.dereference(
+            fontDictionary[PdfDictionaryProperties.encoding]);
+        if (primitive != null && primitive is PdfDictionary) {
+          encodingDictionary = primitive;
+        }
       } else if (fontDictionary[PdfDictionaryProperties.encoding]
           is PdfDictionary) {
         encodingDictionary =
@@ -2629,6 +2644,7 @@ class FontStructure {
       decodedText = mapZapf(decodedText);
     }
     if (fontEncoding == 'MacRomanEncoding') {
+      macRomanEncoded = true;
       String tempstring = '';
       for (int i = 0; i < decodedText.length; i++) {
         final int b = decodedText[i].codeUnitAt(0).toUnsigned(8);

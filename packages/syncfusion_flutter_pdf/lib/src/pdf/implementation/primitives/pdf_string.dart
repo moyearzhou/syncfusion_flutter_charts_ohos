@@ -97,6 +97,7 @@ class PdfString implements IPdfPrimitive {
   /// internal method
   List<int> pdfEncode(PdfDocument? document) {
     final List<int> result = <int>[];
+    final PdfSecurity? security = (document == null) ? null : document.security;
     result.add(isHex!
         ? PdfString.hexStringMark.codeUnitAt(0)
         : PdfString.stringMark.codeUnitAt(0));
@@ -124,7 +125,10 @@ class PdfString implements IPdfPrimitive {
         for (int i = 0; i < value!.length; i++) {
           tempData.add(value!.codeUnitAt(i).toUnsigned(8));
         }
-        tempData = escapeSymbols(tempData);
+        if (security == null ||
+            !PdfSecurityHelper.getHelper(security).encryptor.encrypt) {
+          tempData = escapeSymbols(tempData);
+        }
       }
       bool hex = false;
       tempData = _encryptIfNeeded(tempData, document);

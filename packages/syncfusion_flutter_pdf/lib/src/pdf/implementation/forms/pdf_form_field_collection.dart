@@ -278,6 +278,15 @@ class PdfFormFieldCollectionHelper extends PdfObjectCollectionHelper {
                   PdfAnnotationHelper.getHelper(oldFieldHelper.widget!)
                       .dictionary;
             }
+            if (isLoaded) {
+              final PdfCrossTable? crossTable =
+                  PdfFormHelper.getHelper(form!).crossTable;
+              final PdfDictionary? cloneIprimitive =
+                  dic?.cloneObject(crossTable!) as PdfDictionary?;
+              dic = cloneIprimitive;
+              dic?.setProperty(
+                  PdfDictionaryProperties.p, PdfReferenceHolder(field.page));
+            }
             dic!.remove(PdfDictionaryProperties.parent);
             if (isLoaded) {
               dic.setProperty(PdfDictionaryProperties.parent,
@@ -413,8 +422,13 @@ class PdfFormFieldCollectionHelper extends PdfObjectCollectionHelper {
     if (items != null) {
       final PdfDictionary? itemDictionary =
           PdfCrossTable.dereference(referenceHolder) as PdfDictionary?;
-      PdfFieldItemCollectionHelper.getHelper(items)
-          .add(PdfCheckBoxItemHelper.getItem(field, index, itemDictionary));
+      if (field is PdfCheckBoxField) {
+        PdfFieldItemCollectionHelper.getHelper(items)
+            .add(PdfCheckBoxItemHelper.getItem(field, index, itemDictionary));
+      } else if (field is PdfTextBoxField) {
+        PdfFieldItemCollectionHelper.getHelper(items)
+            .add(PdfTextBoxItemHelper.getItem(field, index, itemDictionary));
+      }
     }
   }
 

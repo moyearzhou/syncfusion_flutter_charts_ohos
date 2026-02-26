@@ -24,6 +24,19 @@ class _HomePage extends State<HomePage> {
     super.initState();
   }
 
+  void _disposeDocument() {
+    // 调用PDF Viewer的dispose方法来关闭文档
+    _pdfViewerKey.currentState?.dispose();
+    
+    // 显示提示信息
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text('文档已关闭'),
+        backgroundColor: Colors.green,
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -32,8 +45,16 @@ class _HomePage extends State<HomePage> {
         actions: <Widget>[
           IconButton(
             icon: const Icon(
+              Icons.close,
+              color: Colors.green,
+              semanticLabel: '关闭文档',
+            ),
+            onPressed: _disposeDocument,
+          ),
+          IconButton(
+            icon: const Icon(
               Icons.bookmark,
-              color: Colors.white,
+              color: Colors.green,
               semanticLabel: 'Bookmark',
             ),
             onPressed: () {

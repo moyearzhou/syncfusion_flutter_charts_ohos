@@ -76,6 +76,7 @@ class PdfLayer implements IPdfWrapper {
     if (_helper.dictionary != null) {
       _helper.dictionary![PdfDictionaryProperties.visible] = PdfBoolean(value);
     }
+    _helper._setVisibility(_visible);
   }
 
   /// Gets the collection of child [PdfLayer]
@@ -572,6 +573,72 @@ class PdfLayerHelper {
       }
     }
     return isPresent;
+  }
+
+  void _setVisibility(bool? value) {
+    PdfDictionary? oCProperties;
+    if (PdfDocumentHelper.getHelper(
+      document!,
+    ).catalog.containsKey(PdfDictionaryProperties.ocProperties)) {
+      oCProperties = PdfCrossTable.dereference(
+        PdfDocumentHelper.getHelper(
+          document!,
+        ).catalog[PdfDictionaryProperties.ocProperties],
+      ) as PdfDictionary?;
+    }
+    if (oCProperties != null) {
+      final PdfDictionary? defaultView =
+          oCProperties[PdfDictionaryProperties.defaultView] as PdfDictionary?;
+      if (defaultView != null) {
+        PdfArray? ocgON =
+            defaultView[PdfDictionaryProperties.ocgOn] as PdfArray?;
+        PdfArray? ocgOFF =
+            defaultView[PdfDictionaryProperties.ocgOff] as PdfArray?;
+        if (referenceHolder != null) {
+          if (value == false) {
+            if (ocgON != null) {
+              _removeContent(ocgON, referenceHolder);
+            }
+            if (ocgOFF == null) {
+              ocgOFF = PdfArray();
+              defaultView.items![PdfName(PdfDictionaryProperties.ocgOff)] =
+                  ocgOFF;
+            }
+            ocgOFF.insert(ocgOFF.count, referenceHolder!);
+          } else if (value ?? true) {
+            if (ocgOFF != null) {
+              _removeContent(ocgOFF, referenceHolder);
+            }
+            if (ocgON == null) {
+              ocgON = PdfArray();
+              defaultView.items![PdfName(PdfDictionaryProperties.ocgOn)] =
+                  ocgON;
+            }
+            ocgON.insert(ocgON.count, referenceHolder!);
+          }
+        }
+      }
+    }
+  }
+
+  void _removeContent(PdfArray content, PdfReferenceHolder? referenceHolder) {
+    bool flag = false;
+    for (int i = 0; i < content.count; i++) {
+      final IPdfPrimitive? primitive = content.elements[i];
+      if (primitive != null && primitive is PdfReferenceHolder) {
+        final PdfReferenceHolder holder = primitive;
+        if (holder.reference != null && referenceHolder!.reference != null) {
+          if (holder.reference!.objNum == referenceHolder.reference!.objNum) {
+            content.elements.removeAt(i);
+            flag = true;
+            i--;
+          }
+        }
+      }
+    }
+    if (flag) {
+      content.changed = true;
+    }
   }
 
   /// internal property

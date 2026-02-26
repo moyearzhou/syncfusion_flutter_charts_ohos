@@ -4,6 +4,7 @@ import '../../../interfaces/pdf_interface.dart';
 import '../../drawing/drawing.dart';
 import '../../io/pdf_constants.dart';
 import '../../io/pdf_cross_table.dart';
+import '../../pages/pdf_page.dart';
 import '../../primitives/pdf_array.dart';
 import '../../primitives/pdf_dictionary.dart';
 import '../../primitives/pdf_name.dart';
@@ -74,7 +75,7 @@ class PdfTemplate implements IPdfWrapper {
   }
 
   PdfTemplate._(Offset origin, Size size, List<int> stream,
-      PdfDictionary resources, bool isLoadedPage)
+      PdfDictionary resources, bool isLoadedPage, PdfPageHelper page)
       : super() {
     _helper = PdfTemplateHelper(this);
     if (size == Size.zero) {
@@ -82,10 +83,41 @@ class PdfTemplate implements IPdfWrapper {
           size, 'size', 'The size of the new PdfTemplate cannot be empty.');
     }
     _helper.content = PdfStream();
-    if (origin.dx < 0 || origin.dy < 0) {
-      _setSize(size.width, size.height, origin);
+    if (page.cropBox.left > 0 && page.cropBox.top > 0) {
+      _setBounds(page.cropBox);
+      _helper._origin = Offset(page.cropBox.left, page.cropBox.top);
+      _setSize(page.cropBox.right, page.cropBox.bottom, _helper._origin);
+    } else if (page.mediaBox.left > 0 || page.mediaBox.top > 0) {
+      if (page.mediaBox.left < page.mediaBox.top) {
+        final Rect mediaBox = page.mediaBox;
+        PdfArray val = PdfArray.fromRectangle(PdfRectangle.fromRect(mediaBox));
+        if (mediaBox.top > 0 &&
+            mediaBox.width > 0 &&
+            mediaBox.top > mediaBox.width &&
+            mediaBox.top == mediaBox.height &&
+            val.count > 3) {
+          val = PdfArray([0, 0, mediaBox.width, mediaBox.top]);
+        }
+        _helper.content[PdfDictionaryProperties.bBox] = val;
+        if (page.mediaBox.left > 0 || page.mediaBox.top > 0) {
+          _helper._origin = Offset(mediaBox.left, mediaBox.top);
+          if (page.mediaBox.left > 0 && page.mediaBox.top > 0) {
+            _size = PdfSize(mediaBox.width, mediaBox.height);
+            _helper.hasMediaBox = true;
+          } else if (page.mediaBox.top != page.mediaBox.height &&
+              page.mediaBox.top > 0) {
+            _size = PdfSize(mediaBox.width, mediaBox.height);
+          }
+        }
+      } else {
+        _setSize(size.width, size.height);
+      }
     } else {
-      _setSize(size.width, size.height);
+      if (origin.dx < 0 || origin.dy < 0) {
+        _setSize(size.width, size.height, origin);
+      } else {
+        _setSize(size.width, size.height);
+      }
     }
     _initialize();
     _helper.content.dataStream!.addAll(stream);
@@ -254,6 +286,8 @@ class PdfTemplateHelper {
   /// internal field
   bool isLoadedPageTemplate = false;
   PdfResources? _resources;
+  Offset _origin = Offset.zero;
+  bool hasMediaBox = false;
 
   /// internal method
   static PdfTemplateHelper getHelper(PdfTemplate template) {
@@ -269,6 +303,8 @@ class PdfTemplateHelper {
     }
   }
 
+  Offset get origin => _origin;
+
   /// internal method
   static PdfTemplate fromRect(Rect bounds) {
     return PdfTemplate._fromRect(bounds);
@@ -281,8 +317,8 @@ class PdfTemplateHelper {
 
   /// internal method
   static PdfTemplate internal(Offset origin, Size size, List<int> stream,
-      PdfDictionary resources, bool isLoadedPage) {
-    return PdfTemplate._(origin, size, stream, resources, isLoadedPage);
+      PdfDictionary resources, bool isLoadedPage, PdfPageHelper page) {
+    return PdfTemplate._(origin, size, stream, resources, isLoadedPage, page);
   }
 
   /// internal method

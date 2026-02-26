@@ -1,5 +1,6 @@
 import 'dart:collection';
 import 'dart:convert';
+import 'dart:typed_data';
 
 import 'package:xml/xml.dart';
 
@@ -535,6 +536,27 @@ class PdfDocument {
   }
 
   //Public methods
+  /// Saves the document and return the saved bytes as Uint8List.
+  /// ```dart
+  /// //Create a PDF document instance.
+  /// PdfDocument document = PdfDocument();
+  /// //Get the page and draw text.
+  /// document.pages.add().graphics.drawString(
+  ///     'Hello World!', PdfStandardFont(PdfFontFamily.helvetica, 12),
+  ///     brush: PdfBrushes.black, bounds: Rect.fromLTWH(0, 0, 0, 0));
+  /// //Save and dispose document.
+  /// Uint8List bytes = document.saveAsBytesSync();
+  /// document.dispose();
+  /// ```
+  Uint8List saveAsBytesSync() {
+    final PdfBytesBuilder buffer = PdfBytesBuilder();
+    final PdfWriter writer = PdfWriter(null, buffer);
+    _saveDocument(writer);
+    final Uint8List bytes = buffer.takeBytes();
+    buffer.clear();
+    return bytes;
+  }
+
   /// Saves the document and return the saved bytes as list of int.
   ///
   /// ```dart
@@ -551,6 +573,12 @@ class PdfDocument {
   List<int> saveSync() {
     final List<int> buffer = <int>[];
     final PdfWriter writer = PdfWriter(buffer);
+    _saveDocument(writer);
+    return writer.buffer!;
+  }
+
+  /// Internal method to save the PDF document.
+  void _saveDocument(PdfWriter writer) {
     writer.document = this;
     _checkPages();
     if (_helper.isLoadedDocument &&
@@ -639,7 +667,27 @@ class PdfDocument {
       final DocumentSavedArgs argsSaved = DocumentSavedArgs(writer);
       _onDocumentSaved(argsSaved);
     }
-    return writer.buffer!;
+  }
+
+  /// Asynchronously saves the document and return the saved bytes as Uint8List.
+  /// ```dart
+  /// //Create a PDF document instance.
+  /// PdfDocument document = PdfDocument();
+  /// //Get the page and draw text.
+  /// document.pages.add().graphics.drawString(
+  ///     'Hello World!', PdfStandardFont(PdfFontFamily.helvetica, 12),
+  ///     brush: PdfBrushes.black, bounds: Rect.fromLTWH(0, 0, 0, 0));
+  /// //Save and dispose document.
+  /// Uint8List bytes = await document.saveAsBytes();
+  /// document.dispose();
+  /// ```
+  Future<Uint8List> saveAsBytes() async {
+    final PdfBytesBuilder buffer = PdfBytesBuilder();
+    final PdfWriter writer = PdfWriter(null, buffer);
+    await _saveDocumentAsync(writer);
+    final Uint8List bytes = buffer.takeBytes();
+    buffer.clear();
+    return bytes;
   }
 
   /// Saves the document and return the saved bytes as future list of int.
@@ -657,6 +705,12 @@ class PdfDocument {
   Future<List<int>> save() async {
     final List<int> buffer = <int>[];
     final PdfWriter writer = PdfWriter(buffer);
+    await _saveDocumentAsync(writer);
+    return writer.buffer!;
+  }
+
+  /// Internal method to save the PDF document
+  Future<void> _saveDocumentAsync(PdfWriter writer) async {
     writer.document = this;
     await _checkPagesAsync();
     if (_helper.isLoadedDocument &&
@@ -746,7 +800,6 @@ class PdfDocument {
       final DocumentSavedArgs argsSaved = DocumentSavedArgs(writer);
       await _onDocumentSavedAsync(argsSaved);
     }
-    return writer.buffer!;
   }
 
   void _checkPages() {

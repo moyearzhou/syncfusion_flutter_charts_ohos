@@ -41,6 +41,7 @@ For use cases [example](example/lib/main.dart).
 This document is verified based on the following versions:
 
 1. Flutter: 3.27.5-ohos-1.0.1; SDK: 5.0.0(12); IDE: DevEco Studio: 6.0.1.251; ROM: 6.0.0.115 SP16;
+2. Flutter: 3.35.8-ohos-0.0.2; SDK: 6.0.2(22); IDE: DevEco Studio: 6.0.2.640; ROM: 6.0.0.328 SP52;
 
 ## 3. API
 

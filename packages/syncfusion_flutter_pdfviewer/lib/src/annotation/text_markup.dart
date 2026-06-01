@@ -2,6 +2,7 @@ import 'dart:math' show Point, sqrt;
 import 'package:flutter/material.dart';
 
 import '../../pdfviewer.dart';
+import '../common/pdfviewer_helper.dart';
 import 'annotation.dart';
 import 'annotation_view.dart';
 

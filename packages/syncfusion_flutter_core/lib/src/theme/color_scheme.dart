@@ -560,6 +560,29 @@ extension _ColorExtension on Color {
     return (x * 255.0).round() & 0xff;
   }
 
+  /// 兼容 Flutter 3.22：旧版 Color 没有 r/g/b/a 归一化通道，
+  /// 这里补齐同名 getter，保持下方 toInt32 的原有计算写法不变。
+  double get a => alpha / 255.0;
+  double get r => red / 255.0;
+  double get g => green / 255.0;
+  double get b => blue / 255.0;
+
+  /// 兼容 Flutter 3.22：补齐新版 Color.withValues 的 alpha 用法，
+  /// 这样可以恢复仓库里原本的 withValues(alpha: ...) 写法。
+  Color withValues({
+    double? alpha,
+    double? red,
+    double? green,
+    double? blue,
+  }) {
+    return Color.fromRGBO(
+      ((red ?? r) * 255).round(),
+      ((green ?? g) * 255).round(),
+      ((blue ?? b) * 255).round(),
+      alpha ?? a,
+    );
+  }
+
   int get toInt32 {
     return _floatToInt8(a) << 24 |
         _floatToInt8(r) << 16 |

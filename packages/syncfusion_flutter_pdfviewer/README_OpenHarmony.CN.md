@@ -19,7 +19,7 @@
 dependencies:
   syncfusion_flutter_pdfviewer:
     git:
-      url: https://gitcode.com/openharmony-sig/fluttertpc_syncfusion_flutter_charts.git
+      url: https://gitcode.com/CPF-Flutter/fluttertpc_syncfusion_flutter_charts.git
 ```
 
 执行命令

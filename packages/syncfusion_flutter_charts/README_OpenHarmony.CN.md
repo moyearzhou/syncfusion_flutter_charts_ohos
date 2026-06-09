@@ -19,12 +19,12 @@
 dependencies:
   syncfusion_flutter_charts:
     git:
-      url: https://gitcode.com/openharmony-sig/open_app_settings.git
+      url: https://gitcode.com/CPF-Flutter/fluttertpc_open_app_settings.git
 
 dev_dependencies:
   syncfusion_flutter_charts_ohos:
     git:
-      url: https://gitcode.com/openharmony-sig/open_app_settings.git
+      url: https://gitcode.com/CPF-Flutter/fluttertpc_open_app_settings.git
       path: ohos
 ```
 
@@ -61,7 +61,7 @@ flutter pub get
 
 ## 6. 开源协议
 
-本项目基于 [unknown](https://gitcode.com/openharmony-sig/fluttertpc_syncfusion_flutter_charts/blob/master/packages/syncfusion_flutter_charts/LICENSE) ，请自由地享受和参与开源。
+本项目基于 [unknown](https://gitcode.com/CPF-Flutter/fluttertpc_syncfusion_flutter_charts/blob/master/packages/syncfusion_flutter_charts/LICENSE) ，请自由地享受和参与开源。
 
 
 

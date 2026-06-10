@@ -19,12 +19,12 @@ Go to the project directory and add the following dependencies in pubspec.yaml
 dependencies:
   syncfusion_flutter_charts:
     git:
-      url: https://gitcode.com/CPF-Flutter/fluttertpc_open_app_settings.git
+      url: https://gitcode.com/CPF-Flutter/fluttertpc_syncfusion_flutter_charts.git
 
 dev_dependencies:
   syncfusion_flutter_charts_ohos:
     git:
-      url: https://gitcode.com/CPF-Flutter/fluttertpc_open_app_settings.git
+      url: https://gitcode.com/CPF-Flutter/fluttertpc_syncfusion_flutter_charts.git
       path: ohos
 ```
 

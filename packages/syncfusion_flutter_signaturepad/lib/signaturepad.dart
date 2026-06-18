@@ -20,6 +20,15 @@ const double _kMaximumStrokeWidth = 5.0;
 const double _kDefaultHeight = 250.0;
 const double _kDefaultWidth = 250.0;
 
+/// 兼容 Flutter 3.22：旧版 Color 不提供 r/g/b/a 归一化通道。
+/// 这里补齐同名 getter，保留签名导出时原本的颜色计算逻辑。
+extension _ColorCompatExtension on Color {
+  double get a => alpha / 255.0;
+  double get r => red / 255.0;
+  double get g => green / 255.0;
+  double get b => blue / 255.0;
+}
+
 /// Signature used by [SfSignaturePad] for [SfSignaturePad.onDraw] callback.
 typedef SignatureDrawCallback = void Function(Offset offset, DateTime time);
 

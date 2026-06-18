@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:syncfusion_flutter_core/localizations.dart';
 import 'package:syncfusion_flutter_core/theme.dart';
+import '../common/pdfviewer_helper.dart';
 import '../theme/theme.dart';
 
 /// Height of the bookmark header bar.

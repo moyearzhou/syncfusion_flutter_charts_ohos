@@ -4,6 +4,7 @@ import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 
+import '../common/pdfviewer_helper.dart';
 import '../control/enums.dart';
 import 'annotation.dart';
 import 'annotation_view.dart';

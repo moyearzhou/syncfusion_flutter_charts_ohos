@@ -156,6 +156,36 @@ extension PdfColorExtension on PdfColor {
 
 /// The [Color] extension.
 extension MaterialColorExtension on Color {
+  /// 兼容 Flutter 3.22：旧版 Color 缺少 r/g/b/a 归一化通道，
+  /// 因此在扩展中补齐同名 getter，保留下游 PdfColor 和亮度计算逻辑。
+  /// Returns the normalized alpha channel value.
+  double get a => alpha / 255.0;
+
+  /// Returns the normalized red channel value.
+  double get r => red / 255.0;
+
+  /// Returns the normalized green channel value.
+  double get g => green / 255.0;
+
+  /// Returns the normalized blue channel value.
+  double get b => blue / 255.0;
+
+  /// 兼容 Flutter 3.22：补齐新版 Color.withValues 的 alpha 用法，
+  /// 保持业务侧原有调用写法不变。
+  Color withValues({
+    double? alpha,
+    double? red,
+    double? green,
+    double? blue,
+  }) {
+    return Color.fromRGBO(
+      ((red ?? r) * 255).round(),
+      ((green ?? g) * 255).round(),
+      ((blue ?? b) * 255).round(),
+      alpha ?? a,
+    );
+  }
+
   /// Converts the [Color] to [PdfColor].
   PdfColor get pdfColor =>
       PdfColor((r * 255).round(), (g * 255).round(), (b * 255).round());

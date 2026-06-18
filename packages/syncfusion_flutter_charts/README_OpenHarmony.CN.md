@@ -20,12 +20,14 @@ dependencies:
   syncfusion_flutter_charts:
     git:
       url: https://gitcode.com/CPF-Flutter/fluttertpc_syncfusion_flutter_charts.git
+      path: packages/syncfusion_flutter_charts
+      # ref: 请根据TAG版本对应表选择TAG
 
 dev_dependencies:
   syncfusion_flutter_charts_ohos:
     git:
       url: https://gitcode.com/CPF-Flutter/fluttertpc_syncfusion_flutter_charts.git
-      path: ohos
+      path: packages/syncfusion_flutter_charts/ohos
 ```
 
 执行命令

@@ -21,7 +21,7 @@ dependencies:
   path_provider: ^2.0.0
   path_provider_ohos:
    git:
-     url: "https://gitcode.com/openharmony-tpc/flutter_packages.git"
+     url: "https://gitcode.com/CPF-Flutter/flutter_packages.git"
      path: "packages/path_provider/path_provider_ohos"
 
 dev_dependencies:

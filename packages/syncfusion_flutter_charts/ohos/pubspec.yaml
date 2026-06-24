@@ -1,7 +1,7 @@
 name: syncfusion_flutter_charts_ohos
-description: "Retrieve Ohos device user agents in Flutter."
+description: "A Flutter Charts library for OpenHarmony platform implementation."
 version: 1.0.0
-homepage: https://gitee.com/openharmony-sig/fluttertpc_fsyncfusion_flutter_charts
+homepage: https://gitcode.com/CPF-Flutter/fluttertpc_syncfusion_flutter_charts
 
 screenshots:
   - description: 'This screenshot shows the area type charts image.'

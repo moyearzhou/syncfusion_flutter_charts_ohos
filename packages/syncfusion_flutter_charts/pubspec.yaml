@@ -16,7 +16,7 @@ screenshots:
     path: screenshots/flutter-SfCaretesian-charts.png
   - description: 'This screenshot shows the sparkcharts image.'
     path: screenshots/flutter-SparkChart.png
-
+ 
 environment:
   sdk: '>=2.17.0 <4.0.0'
 
@@ -33,3 +33,7 @@ dev_dependencies:
     sdk: flutter
 
 flutter:
+  plugin:
+    platforms:
+      ohos:
+        default_package: syncfusion_flutter_charts_ohos

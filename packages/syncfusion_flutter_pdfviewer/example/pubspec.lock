@@ -246,7 +246,7 @@ packages:
       path: "packages/path_provider/path_provider_ohos"
       ref: HEAD
       resolved-ref: "4b714ff0cb8df6a502b66c180272ea4082a7e7c0"
-      url: "https://gitcode.com/openharmony-tpc/flutter_packages.git"
+      url: "https://gitcode.com/CPF-Flutter/flutter_packages.git"
     source: git
     version: "2.2.1"
   path_provider_platform_interface:
@@ -459,7 +459,7 @@ packages:
       path: "packages/url_launcher/url_launcher_ohos"
       ref: HEAD
       resolved-ref: "4b714ff0cb8df6a502b66c180272ea4082a7e7c0"
-      url: "https://gitcode.com/openharmony-tpc/flutter_packages.git"
+      url: "https://gitcode.com/CPF-Flutter/flutter_packages.git"
     source: git
     version: "6.0.38"
   url_launcher_platform_interface:

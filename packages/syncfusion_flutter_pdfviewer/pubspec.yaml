@@ -65,7 +65,7 @@ dependencies:
   url_launcher: ^6.1.0
   url_launcher_ohos:
    git:
-     url: "https://gitcode.com/openharmony-tpc/flutter_packages.git"
+     url: "https://gitcode.com/CPF-Flutter/flutter_packages.git"
      path: "packages/url_launcher/url_launcher_ohos"
 
 screenshots:

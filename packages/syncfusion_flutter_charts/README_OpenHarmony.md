@@ -19,13 +19,8 @@ Go to the project directory and add the following dependencies in pubspec.yaml
 dependencies:
   syncfusion_flutter_charts:
     git:
-      url: https://gitcode.com/openharmony-sig/open_app_settings.git
-
-dev_dependencies:
-  syncfusion_flutter_charts_ohos:
-    git:
-      url: https://gitcode.com/openharmony-sig/open_app_settings.git
-      path: ohos
+      url: https://gitcode.com/CPF-Flutter/fluttertpc_syncfusion_flutter_charts.git
+      path: packages/syncfusion_flutter_charts   
 ```
 
 Execute Command
@@ -60,6 +55,6 @@ not
 
 ## 6. License
 
-This project is licensed under  [unknown](https://gitcode.com/openharmony-sig/fluttertpc_syncfusion_flutter_charts/blob/master/packages/syncfusion_flutter_charts/LICENSE) .
+This project is licensed under  [unknown](https://gitcode.com/CPF-Flutter/fluttertpc_syncfusion_flutter_charts/blob/master/packages/syncfusion_flutter_charts/LICENSE) .
 
 > Template version: v0.0.1

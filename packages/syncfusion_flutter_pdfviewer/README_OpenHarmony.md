@@ -21,7 +21,7 @@ dependencies:
     git:
       url: https://gitcode.com/CPF-Flutter/fluttertpc_syncfusion_flutter_charts.git
       path: packages/syncfusion_flutter_pdfviewer
-      # ref: flutter_pdfviewer-27.1.48-ohos.1.0.0-beta.1
+      # ref: flutter_pdfviewer-29.1.38-ohos.1.0.0
       ref: x.x.x-ohos-x.x.x-beta.x # Please select the TAG to the TAG Version Mapping
 ```
 
@@ -33,12 +33,12 @@ flutter pub get
 
 #### TAG Version Mapping
 
-| Flutter Framework Version | TAG                                         | Branch                                         |
-|---------------------------|---------------------------------------------|------------------------------------------------|
-| 3.7                       | -                                           | -                                              |
-| 3.22                      | -                                           | -                                              |
-| 3.27                      | flutter_pdfviewer-27.1.48-ohos.1.0.0-beta.1 | br_syncfusion_flutter_pdfviewer-v29.1.38_ohos  |
-| 3.35                      | flutter_pdfviewer-27.1.48-ohos.1.0.0-beta.1 | br_syncfusion_flutter_pdfviewer-v29.1.38_ohos  |
+| Flutter Framework Version | TAG                                  | Branch                                         |
+|---------------------------|--------------------------------------|------------------------------------------------|
+| 3.7                       | -                                    | -                                              |
+| 3.22                      | flutter_pdfviewer-29.1.38-ohos.1.0.0 | br_syncfusion_flutter_pdfviewer-v29.1.38_ohos  |
+| 3.27                      | flutter_pdfviewer-29.1.38-ohos.1.0.0 | br_syncfusion_flutter_pdfviewer-v29.1.38_ohos  |
+| 3.35                      | flutter_pdfviewer-29.1.38-ohos.1.0.0 | br_syncfusion_flutter_pdfviewer-v29.1.38_ohos  |
 
 <!-- tabs:end -->
 

@@ -34,11 +34,11 @@ flutter pub get
 #### TAG 版本对应表
 
 | Flutter 框架版本 | TAG                                         | 分支     |
-|---------------------------|---------------------------------------------|------------------------------------------------|
-| 3.7                       | -                                           | -                                              |
-| 3.22                      | flutter_pdfviewer-29.1.38-ohos-1.0.0-beta.2 | br_syncfusion_flutter_pdfviewer-v29.1.38_ohos  |
-| 3.27                      | flutter_pdfviewer-29.1.38-ohos-1.0.0-beta.2 | br_syncfusion_flutter_pdfviewer-v29.1.38_ohos  |
-| 3.35                      | flutter_pdfviewer-29.1.38-ohos-1.0.0-beta.2 | br_syncfusion_flutter_pdfviewer-v29.1.38_ohos  |
+|----------------|---------------------------------------------|------------------------------------------------|
+| 3.7            | -                                           | -                                              |
+| 3.22           | flutter_pdfviewer-29.1.38-ohos-1.0.0-beta.2 | br_syncfusion_flutter_pdfviewer-v29.1.38_ohos  |
+| 3.27           | flutter_pdfviewer-29.1.38-ohos-1.0.0-beta.2 | br_syncfusion_flutter_pdfviewer-v29.1.38_ohos  |
+| 3.35           | flutter_pdfviewer-29.1.38-ohos-1.0.0-beta.2 | br_syncfusion_flutter_pdfviewer-v29.1.38_ohos  |
 
 <!-- tabs:end -->
 

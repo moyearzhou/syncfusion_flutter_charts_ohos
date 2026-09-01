@@ -4522,9 +4522,8 @@ class SfPdfViewerState extends State<SfPdfViewer> with WidgetsBindingObserver {
     return selectedTextLines ?? <PdfTextLine>[];
   }
 
-  // 获取瓷砖图像 
-  Future<void> _getTileImage() async {
-    print('Syncfusion PDF _getTileImage: Started');
+  // 获取瓷砖图像
+  Future<void> _getTileImage({bool immediate = false}) async {
     // 如果是Web或非测试环境，则获取瓷砖图像
     if (kIsWeb || !Platform.environment.containsKey('FLUTTER_TEST')) {
       // 取消瓷砖图像获取定时器
@@ -4535,10 +4534,15 @@ class SfPdfViewerState extends State<SfPdfViewer> with WidgetsBindingObserver {
       // 检查可见页面
       _checkVisiblePages();
       // 延迟获取瓷砖图像
-      _tileTimer ??= Timer(Durations.medium4, () async {
+      _tileTimer ??= Timer(
+          immediate ? Duration.zero : Durations.medium4, () async {
         _checkVisiblePages();
         // 获取瓷砖图像缩放级别
         final double zoomLevel = _transformationController.value[0];
+        print(
+          '[Syncfusion PDF][tileScheduler] render mode=${immediate ? 'immediate' : 'debounced'} '
+          'pages=${_renderedImages.join(',')} zoom=${zoomLevel.toStringAsFixed(3)}',
+        );
         if (_pageLayoutMode == PdfPageLayoutMode.continuous) {
           // 连续模式下获取所有渲染页面的瓷砖图像
           for (final int pageNumber in _renderedImages) {
@@ -5590,7 +5594,7 @@ class SfPdfViewerState extends State<SfPdfViewer> with WidgetsBindingObserver {
         yOffset: _pdfPages[pageNumber]!.pageOffset,
       );
     }
-    _getTileImage();
+    _getTileImage(immediate: true);
   }
 
   /// Jump to the bookmark location.

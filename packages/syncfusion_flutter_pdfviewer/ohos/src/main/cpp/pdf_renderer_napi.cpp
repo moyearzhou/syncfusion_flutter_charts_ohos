@@ -15,10 +15,12 @@
 namespace {
 
 constexpr int64_t kMaxTilePixels = 16 * 1024 * 1024;
+constexpr int64_t kMaxPagePixels = 16 * 1024 * 1024;
 
 std::mutex gPdfiumMutex;
 std::unordered_map<int32_t, FPDF_DOCUMENT> gDocuments;
 std::unordered_map<uint64_t, int32_t> gLatestTileRequests;
+std::unordered_map<uint64_t, int32_t> gLatestPageRequests;
 int32_t gNextDocumentId = 1;
 bool gPdfiumInitialized = false;
 
@@ -33,6 +35,20 @@ struct RenderTileWork {
   int32_t width = 0;
   int32_t height = 0;
   double scale = 0;
+  int32_t requestGeneration = 0;
+  std::vector<uint8_t> pixels;
+  std::string error;
+  bool superseded = false;
+};
+
+struct RenderPageWork {
+  napi_env env = nullptr;
+  napi_async_work work = nullptr;
+  napi_deferred deferred = nullptr;
+  int32_t documentId = 0;
+  int32_t pageIndex = 0;
+  int32_t width = 0;
+  int32_t height = 0;
   int32_t requestGeneration = 0;
   std::vector<uint8_t> pixels;
   std::string error;
@@ -121,6 +137,13 @@ napi_value CloseDocument(napi_env env, napi_callback_info info) {
           ++request;
         }
       }
+      for (auto request = gLatestPageRequests.begin(); request != gLatestPageRequests.end();) {
+        if (static_cast<int32_t>(request->first >> 32) == documentId) {
+          request = gLatestPageRequests.erase(request);
+        } else {
+          ++request;
+        }
+      }
       closed = true;
     }
   }
@@ -128,6 +151,151 @@ napi_value CloseDocument(napi_env env, napi_callback_info info) {
   napi_value result;
   napi_get_boolean(env, closed, &result);
   return result;
+}
+
+void ExecuteRenderPage(napi_env, void* data) {
+  auto* request = static_cast<RenderPageWork*>(data);
+  std::lock_guard<std::mutex> lock(gPdfiumMutex);
+
+  // Full-page requests are independent from tiles; thumbnail documents also have separate ids.
+  const auto latestRequest = gLatestPageRequests.find(
+      TileRequestKey(request->documentId, request->pageIndex));
+  if (latestRequest == gLatestPageRequests.end() ||
+      latestRequest->second != request->requestGeneration) {
+    request->superseded = true;
+    return;
+  }
+
+  const auto documentEntry = gDocuments.find(request->documentId);
+  if (documentEntry == gDocuments.end()) {
+    request->error = "PDFium document is not open";
+    return;
+  }
+
+  FPDF_PAGE page = FPDF_LoadPage(documentEntry->second, request->pageIndex);
+  if (page == nullptr) {
+    request->error = "PDFium failed to load page";
+    return;
+  }
+
+  FPDF_BITMAP bitmap = FPDFBitmap_Create(request->width, request->height, 1);
+  if (bitmap == nullptr) {
+    FPDF_ClosePage(page);
+    request->error = "PDFium failed to allocate page bitmap";
+    return;
+  }
+
+  FPDFBitmap_FillRect(bitmap, 0, 0, request->width, request->height, 0xFFFFFFFF);
+  FPDF_RenderPageBitmap(bitmap, page, 0, 0, request->width, request->height,
+                        FPDFPage_GetRotation(page), FPDF_ANNOT | FPDF_LCD_TEXT);
+
+  const auto* source = static_cast<const uint8_t*>(FPDFBitmap_GetBuffer(bitmap));
+  if (source == nullptr) {
+    FPDFBitmap_Destroy(bitmap);
+    FPDF_ClosePage(page);
+    request->error = "PDFium page bitmap buffer is unavailable";
+    return;
+  }
+
+  const int stride = FPDFBitmap_GetStride(bitmap);
+  const size_t rowBytes = static_cast<size_t>(request->width) * 4;
+  request->pixels.resize(rowBytes * static_cast<size_t>(request->height));
+  for (int row = 0; row < request->height; ++row) {
+    const uint8_t* sourceRow = source + static_cast<size_t>(row) * stride;
+    uint8_t* destinationRow =
+        request->pixels.data() + static_cast<size_t>(row) * rowBytes;
+    for (int column = 0; column < request->width; ++column) {
+      const size_t offset = static_cast<size_t>(column) * 4;
+      destinationRow[offset] = sourceRow[offset + 2];
+      destinationRow[offset + 1] = sourceRow[offset + 1];
+      destinationRow[offset + 2] = sourceRow[offset];
+      destinationRow[offset + 3] = sourceRow[offset + 3];
+    }
+  }
+
+  FPDFBitmap_Destroy(bitmap);
+  FPDF_ClosePage(page);
+}
+
+void CompleteRenderPage(napi_env env, napi_status status, void* data) {
+  auto* request = static_cast<RenderPageWork*>(data);
+  if (status != napi_ok && request->error.empty()) {
+    request->error = "PDFium page work was cancelled";
+  }
+
+  if (request->superseded) {
+    napi_value nullValue;
+    napi_get_null(env, &nullValue);
+    napi_resolve_deferred(env, request->deferred, nullValue);
+  } else if (!request->error.empty()) {
+    napi_value error;
+    napi_create_string_utf8(env, request->error.c_str(), NAPI_AUTO_LENGTH, &error);
+    napi_reject_deferred(env, request->deferred, error);
+  } else {
+    void* destination = nullptr;
+    napi_value arrayBuffer;
+    napi_create_arraybuffer(env, request->pixels.size(), &destination, &arrayBuffer);
+    std::memcpy(destination, request->pixels.data(), request->pixels.size());
+
+    napi_value bytes;
+    napi_create_typedarray(env, napi_uint8_array, request->pixels.size(), arrayBuffer, 0, &bytes);
+    napi_resolve_deferred(env, request->deferred, bytes);
+  }
+
+  napi_delete_async_work(env, request->work);
+  delete request;
+}
+
+napi_value RenderPage(napi_env env, napi_callback_info info) {
+  size_t argc = 5;
+  napi_value argv[5];
+  if (napi_get_cb_info(env, info, &argc, argv, nullptr, nullptr) != napi_ok || argc != 5) {
+    ThrowError(env, "renderPage requires document, page, width, height and generation");
+    return nullptr;
+  }
+
+  auto* request = new RenderPageWork();
+  request->env = env;
+  if (!GetInt32(env, argv[0], &request->documentId) ||
+      !GetInt32(env, argv[1], &request->pageIndex) ||
+      !GetInt32(env, argv[2], &request->width) ||
+      !GetInt32(env, argv[3], &request->height) ||
+      !GetInt32(env, argv[4], &request->requestGeneration)) {
+    delete request;
+    ThrowError(env, "renderPage received invalid argument types");
+    return nullptr;
+  }
+
+  const int64_t pixelCount = static_cast<int64_t>(request->width) * request->height;
+  if (request->documentId <= 0 || request->pageIndex < 0 || request->width <= 0 ||
+      request->height <= 0 || request->requestGeneration <= 0 ||
+      pixelCount > kMaxPagePixels) {
+    delete request;
+    ThrowError(env, "renderPage received out-of-range arguments");
+    return nullptr;
+  }
+
+  {
+    std::lock_guard<std::mutex> lock(gPdfiumMutex);
+    gLatestPageRequests[TileRequestKey(request->documentId, request->pageIndex)] =
+        request->requestGeneration;
+  }
+
+  napi_value promise;
+  napi_create_promise(env, &request->deferred, &promise);
+  napi_value resourceName;
+  napi_create_string_utf8(env, "SyncfusionPdfiumRenderPage", NAPI_AUTO_LENGTH, &resourceName);
+  if (napi_create_async_work(env, nullptr, resourceName, ExecuteRenderPage, CompleteRenderPage,
+                             request, &request->work) != napi_ok ||
+      napi_queue_async_work(env, request->work) != napi_ok) {
+    if (request->work != nullptr) {
+      napi_delete_async_work(env, request->work);
+    }
+    delete request;
+    ThrowError(env, "renderPage failed to queue native work");
+    return nullptr;
+  }
+  return promise;
 }
 
 void ExecuteRenderTile(napi_env, void* data) {
@@ -296,6 +464,7 @@ napi_value Init(napi_env env, napi_value exports) {
   napi_property_descriptor descriptors[] = {
       {"openDocument", nullptr, OpenDocument, nullptr, nullptr, nullptr, napi_default, nullptr},
       {"closeDocument", nullptr, CloseDocument, nullptr, nullptr, nullptr, napi_default, nullptr},
+      {"renderPage", nullptr, RenderPage, nullptr, nullptr, nullptr, napi_default, nullptr},
       {"renderTile", nullptr, RenderTile, nullptr, nullptr, nullptr, napi_default, nullptr},
   };
   napi_define_properties(env, exports, sizeof(descriptors) / sizeof(descriptors[0]), descriptors);
@@ -309,6 +478,7 @@ void CleanupPdfium() {
   }
   gDocuments.clear();
   gLatestTileRequests.clear();
+  gLatestPageRequests.clear();
   if (gPdfiumInitialized) {
     FPDF_DestroyLibrary();
     gPdfiumInitialized = false;

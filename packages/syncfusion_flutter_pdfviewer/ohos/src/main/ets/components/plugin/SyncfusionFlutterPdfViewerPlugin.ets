@@ -34,6 +34,7 @@ interface DocumentInfo {
   pageCount: number;
   pdfDocument: pdfService.PdfDocument;
   pdfiumDocumentId?: number;
+  pageRequestGeneration: number[];
   tileRequestGeneration: number[];
 }
 
@@ -135,6 +136,7 @@ export default class SyncfusionFlutterPdfViewerPlugin implements FlutterPlugin, 
           pageCount: pageCount,
           pdfDocument: pdfDocument,
           pdfiumDocumentId: pdfiumDocumentId,
+          pageRequestGeneration: [],
           tileRequestGeneration: []
         });
         result.success(pageCount + '');
@@ -214,28 +216,58 @@ export default class SyncfusionFlutterPdfViewerPlugin implements FlutterPlugin, 
         return;
       }
 
-      // 获取文档信息
       const docInfo = this.documentRepo.get(documentID);
-      if (docInfo && docInfo.pageCount && docInfo.pdfDocument) {
-        let pdfPage: pdfService.PdfPage = docInfo.pdfDocument.getPage(index - 1);
-
-        let pdfMatrix: pdfService.PdfMatrix = new pdfService.PdfMatrix();
-        pdfMatrix.x = 0;
-        pdfMatrix.y = 0;
-        pdfMatrix.width = width;
-        pdfMatrix.height = height;
-        pdfMatrix.rotate = 0;
-
-        let img: image.PixelMap = pdfPage.getAreaPixelMap(pdfMatrix, width, height, false, true);
-        let uint8Array: Uint8Array = await this.pixelMap2Buffer(img);
-        LogUtil.info(`Syncfusion PDF getPage uint8Array length: ${uint8Array.length}, expected: ${width * height * 4}`);
-
-        pdfPage.release();
-        await img.release()
-        result.success(uint8Array);
+      if (!docInfo || index < 1 || index > docInfo.pageCount) {
+        result.success(null);
         return;
       }
-      result.success(null);
+
+      const pageIndex = index - 1;
+      const outputWidth = Math.floor(width);
+      const outputHeight = Math.floor(height);
+      const requestGeneration = (docInfo.pageRequestGeneration[pageIndex] ?? 0) + 1;
+      docInfo.pageRequestGeneration[pageIndex] = requestGeneration;
+      const startedAt = Date.now();
+      LogUtil.info(`Syncfusion PDF PDFium page request: page=${index}, width=${outputWidth}, ` +
+        `height=${outputHeight}, generation=${requestGeneration}`);
+
+      try {
+        if (docInfo.pdfiumDocumentId === undefined) {
+          docInfo.pdfiumDocumentId = pdfRenderer.openDocument(docInfo.filePath);
+        }
+        const page = await pdfRenderer.renderPage(
+          docInfo.pdfiumDocumentId,
+          pageIndex,
+          outputWidth,
+          outputHeight,
+          requestGeneration
+        );
+        if (page === null) {
+          LogUtil.info(`Syncfusion PDF PDFium page superseded: page=${index}, ` +
+            `generation=${requestGeneration}, durationMs=${Date.now() - startedAt}`);
+          result.success(null);
+          return;
+        }
+        LogUtil.info(`Syncfusion PDF PDFium page rendered: page=${index}, width=${outputWidth}, ` +
+          `height=${outputHeight}, generation=${requestGeneration}, durationMs=${Date.now() - startedAt}, ` +
+          `bytes=${page.length}`);
+        result.success(page);
+        return;
+      } catch (error) {
+        // Keep PDF Kit only as a recovery path. Its BGRA bytes are normalized to the RGBA getPage contract.
+        LogUtil.error(`Syncfusion PDF PDFium page failed, using PDF Kit: page=${index}, error=${error}`);
+      }
+
+      const fallbackPage = await this.getPageWithPdfKit(
+        docInfo,
+        pageIndex,
+        outputWidth,
+        outputHeight
+      );
+      LogUtil.info(`Syncfusion PDF PDF Kit fallback rendered: page=${index}, width=${outputWidth}, ` +
+        `height=${outputHeight}, generation=${requestGeneration}, durationMs=${Date.now() - startedAt}, ` +
+        `bytes=${fallbackPage.length}`);
+      result.success(fallbackPage);
     } catch (error) {
       LogUtil.error('Syncfusion PDF getPage failed with error : ' + error);
       result.error(error.code, error.message, error);
@@ -274,6 +306,9 @@ export default class SyncfusionFlutterPdfViewerPlugin implements FlutterPlugin, 
       const pageIndex = pageNumber - 1;
       const requestGeneration = (docInfo.tileRequestGeneration[pageIndex] ?? 0) + 1;
       docInfo.tileRequestGeneration[pageIndex] = requestGeneration;
+      const startedAt = Date.now();
+      LogUtil.info(`Syncfusion PDF PDFium tile request: page=${pageNumber}, width=${Math.floor(width)}, ` +
+        `height=${Math.floor(height)}, scale=${scale}, generation=${requestGeneration}`);
       const tile = await pdfRenderer.renderTile(
         docInfo.pdfiumDocumentId,
         pageIndex,
@@ -285,11 +320,14 @@ export default class SyncfusionFlutterPdfViewerPlugin implements FlutterPlugin, 
         requestGeneration
       );
       if (tile === null) {
+        LogUtil.info(`Syncfusion PDF PDFium tile superseded: page=${pageNumber}, ` +
+          `generation=${requestGeneration}, durationMs=${Date.now() - startedAt}`);
         result.success(null);
         return;
       }
       LogUtil.info(`Syncfusion PDF PDFium tile rendered: page=${pageNumber}, width=${Math.floor(width)}, ` +
-        `height=${Math.floor(height)}, scale=${scale}, bytes=${tile.length}`);
+        `height=${Math.floor(height)}, scale=${scale}, generation=${requestGeneration}, ` +
+        `durationMs=${Date.now() - startedAt}, bytes=${tile.length}`);
       result.success(tile);
     } catch (error) {
       LogUtil.error('Syncfusion PDF getTileImage failed with error : ' + error);
@@ -303,6 +341,32 @@ export default class SyncfusionFlutterPdfViewerPlugin implements FlutterPlugin, 
     const arrayBuffer = new ArrayBuffer(byteCount);
     await pixelMap.readPixelsToBuffer(arrayBuffer);
     return new Uint8Array(arrayBuffer);
+  }
+
+  private async getPageWithPdfKit(
+    docInfo: DocumentInfo,
+    pageIndex: number,
+    width: number,
+    height: number
+  ): Promise<Uint8Array> {
+    const pdfPage: pdfService.PdfPage = docInfo.pdfDocument.getPage(pageIndex);
+    const pdfMatrix: pdfService.PdfMatrix = new pdfService.PdfMatrix();
+    pdfMatrix.x = 0;
+    pdfMatrix.y = 0;
+    pdfMatrix.width = width;
+    pdfMatrix.height = height;
+    pdfMatrix.rotate = 0;
+
+    const pixelMap: image.PixelMap = pdfPage.getAreaPixelMap(pdfMatrix, width, height, false, true);
+    const bgraBytes = await this.pixelMap2Buffer(pixelMap);
+    pdfPage.release();
+    await pixelMap.release();
+    for (let offset = 0; offset < bgraBytes.length; offset += 4) {
+      const blue = bgraBytes[offset];
+      bgraBytes[offset] = bgraBytes[offset + 2];
+      bgraBytes[offset + 2] = blue;
+    }
+    return bgraBytes;
   }
 
   private closeDocument(call: MethodCall, result: MethodResult) {

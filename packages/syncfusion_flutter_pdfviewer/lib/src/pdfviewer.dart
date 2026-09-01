@@ -1238,7 +1238,10 @@ class SfPdfViewerState extends State<SfPdfViewer> with WidgetsBindingObserver {
   Size _pdfDimension = Size.zero;
   bool _isPageChanged = false;
   bool _isSinglePageViewPageChanged = false;
+  static const int _pageImageCacheRadius = 4;
+  static const int _ohosPageImageCacheBudgetBytes = 128 * 1024 * 1024;
   final List<int> _renderedImages = <int>[];
+  String _lastPageCacheLog = '';
   final Map<int, String> _pageTextExtractor = <int, String>{};
   Size _totalImageSize = Size.zero;
   late PdfScrollDirection _scrollDirection;
@@ -1270,6 +1273,7 @@ class SfPdfViewerState extends State<SfPdfViewer> with WidgetsBindingObserver {
   double _previousTiledZoomLevel = 1;
   TextDirection? _textDirection;
   bool _isTextExtractionCompleted = false;
+  bool _isTextExtractionInProgress = false;
   final List<int> _matchedTextPageIndices = <int>[];
   final Map<int, String> _extractedTextCollection = <int, String>{};
   Isolate? _textSearchIsolate;
@@ -1445,7 +1449,7 @@ class SfPdfViewerState extends State<SfPdfViewer> with WidgetsBindingObserver {
     }
     // 处理撤销控制器的变化
     if (oldWidget.undoController != widget.undoController) {
-       // 重置变更跟踪器的控制器
+      // 重置变更跟踪器的控制器
       _changeTracker.resetController();
       // 释放旧的撤销控制器
       _undoController?.dispose();
@@ -1475,7 +1479,7 @@ class SfPdfViewerState extends State<SfPdfViewer> with WidgetsBindingObserver {
         oldWidget.pageLayoutMode,
       );
     }
-     // 更新滚动方向
+    // 更新滚动方向
     _scrollDirection = widget.scrollDirection != null
         ? widget.scrollDirection!
         : (widget.pageLayoutMode == PdfPageLayoutMode.single
@@ -1489,7 +1493,7 @@ class SfPdfViewerState extends State<SfPdfViewer> with WidgetsBindingObserver {
         // 延迟检查文本选择菜单的位置
         Future<void>.delayed(Duration.zero, _checkPositionOfTextSelectionMenu);
       } else {
-         // 隐藏文本选择菜单
+        // 隐藏文本选择菜单
         _hideTextSelectionMenu();
       }
     }
@@ -1612,6 +1616,7 @@ class SfPdfViewerState extends State<SfPdfViewer> with WidgetsBindingObserver {
     _matchedTextPageIndices.clear();
     _extractedTextCollection.clear();
     _isTextExtractionCompleted = false;
+    _isTextExtractionInProgress = false;
     _errorTextPresent = false;
     _passwordVisible = true;
     _isEncryptedDocument = false;
@@ -2280,12 +2285,19 @@ class SfPdfViewerState extends State<SfPdfViewer> with WidgetsBindingObserver {
         _retrieveFormFieldsDetails();
         _retrieveAnnotations();
         _pdfTextExtractor = PdfTextExtractor(_document!);
-        if (!kIsWeb) {
-          _performTextExtraction();
-        }
       }
+      final Uint8List? digitalSignatureBytes = _renderDigitalSignatures();
+      final bool canOpenSourceFileDirectly = !kIsWeb &&
+          Platform.isOhos &&
+          !_isEncrypted &&
+          !isDocumentSaved &&
+          digitalSignatureBytes == null &&
+          widget._source is FilePDFSource;
       final int pageCount = await _plugin.initializePdfRenderer(
-        _renderDigitalSignatures() ?? _pdfBytes,
+        digitalSignatureBytes ?? _pdfBytes,
+        filePath: canOpenSourceFileDirectly
+            ? (widget._source as FilePDFSource).filePath
+            : null,
       );
       _pdfViewerController._pageCount = pageCount;
       if (pageCount > 0) {
@@ -2411,18 +2423,52 @@ class SfPdfViewerState extends State<SfPdfViewer> with WidgetsBindingObserver {
 
   /// Perform text extraction for mobile, windows and macOS platforms.
   Future<void> _performTextExtraction() async {
-    if (_document != null && _document!.pages.count > 0) {
-      _textExtractionEngine = TextExtractionEngine(_document!);
+    if (_document == null ||
+        _document!.pages.count == 0 ||
+        _isTextExtractionCompleted ||
+        _isTextExtractionInProgress) {
+      return;
+    }
 
-      _textExtractionEngine!.extractText().then((Map<int, String> value) {
-        _extractedTextCollection.addAll(value);
-        _isTextExtractionCompleted = true;
-        if (_pdfViewerController._searchText.isNotEmpty) {
-          _pdfViewerController._notifyPropertyChangedListeners(
-            property: 'searchText',
-          );
-        }
-      });
+    // Full-document extraction competes with page rendering, so start it only
+    // when search actually needs the full text collection.
+    _isTextExtractionInProgress = true;
+    final TextExtractionEngine engine = TextExtractionEngine(_document!);
+    _textExtractionEngine = engine;
+    final Stopwatch stopwatch = Stopwatch()..start();
+    debugPrint(
+      '[Syncfusion PDF][textExtraction] started '
+      'pages=${_document!.pages.count}',
+    );
+    try {
+      final Map<int, String> value = await engine.extractText();
+      if (_textExtractionEngine != engine) {
+        debugPrint(
+          '[Syncfusion PDF][textExtraction] dropped '
+          'durationMs=${stopwatch.elapsedMilliseconds}',
+        );
+        return;
+      }
+      _extractedTextCollection.addAll(value);
+      _isTextExtractionCompleted = true;
+      debugPrint(
+        '[Syncfusion PDF][textExtraction] completed pages=${value.length} '
+        'durationMs=${stopwatch.elapsedMilliseconds}',
+      );
+      if (_pdfViewerController._searchText.isNotEmpty) {
+        _pdfViewerController._notifyPropertyChangedListeners(
+          property: 'searchText',
+        );
+      }
+    } catch (error) {
+      debugPrint(
+        '[Syncfusion PDF][textExtraction] failed '
+        'durationMs=${stopwatch.elapsedMilliseconds} error=$error',
+      );
+    } finally {
+      if (_textExtractionEngine == engine) {
+        _isTextExtractionInProgress = false;
+      }
     }
   }
 
@@ -3923,37 +3969,31 @@ class SfPdfViewerState extends State<SfPdfViewer> with WidgetsBindingObserver {
             : _getEmptyLinearProgressView());
   }
 
-  void _checkVisiblePages() {
+  void _checkVisiblePages({bool immediate = false}) {
     if (_pdfPages.isEmpty) {
       return;
     }
     _renderedImages.clear();
-    // 获取当前的缩放级别
     final double zoomLevel = _transformationController.value[0];
     if (widget.pageLayoutMode == PdfPageLayoutMode.single) {
       _pdfPagesKey[_pdfViewerController.pageNumber]?.currentState?.getPageImage(
             _viewportSize,
             zoomLevel,
+            immediate: immediate,
           );
       _renderedImages.add(_pdfViewerController.pageNumber);
     } else {
-      // 连续模式，首先获取视口偏移量
       final Offset offset = _transformationController.toScene(Offset.zero);
-      final double x = offset.dx;
-      final double y = offset.dy;
-      // 创建一个表示当前可见区域的矩形（viewportRect）
       final Rect viewportRect = Rect.fromLTWH(
-        x,
-        y,
+        offset.dx,
+        offset.dy,
         _viewportSize.width,
         _viewportSize.height,
       );
-      // Render or clear images from the current page to the last page.
-      // 遍历从当前页到文档末尾的所有页面
-      for (int pageNumber = _pdfViewerController.pageNumber;
+      final List<int> visiblePages = <int>[];
+      for (int pageNumber = 1;
           pageNumber <= _pdfViewerController.pageCount;
           pageNumber++) {
-        // 为每一页创建一个矩形表示其在视口中的位置
         final Rect pageRect = Rect.fromLTWH(
           _scrollDirection == PdfScrollDirection.vertical
               ? 0
@@ -3964,12 +4004,8 @@ class SfPdfViewerState extends State<SfPdfViewer> with WidgetsBindingObserver {
           _pdfPages[pageNumber]!.pageSize.width,
           _pdfPages[pageNumber]!.pageSize.height,
         );
-        // 检查页面矩形与视口矩形是否相交（即页面是否在可见区域内）
-        if (!viewportRect.intersect(pageRect).isEmpty) {
-          // 如果页面可见， 将页号添加到 _renderedImages 集合
-          _renderedImages.add(pageNumber);
-          // Set semantic text only if assistive technology is enabled.
-          // 如果启用了无障碍功能且该页文本未提取，则提取文本
+        if (viewportRect.overlaps(pageRect)) {
+          visiblePages.add(pageNumber);
           if (_isAccessibilityEnabled &&
               (_pageTextExtractor.isEmpty ||
                   !_pageTextExtractor.containsKey(pageNumber - 1))) {
@@ -3977,50 +4013,104 @@ class SfPdfViewerState extends State<SfPdfViewer> with WidgetsBindingObserver {
               startPageIndex: pageNumber - 1,
             );
           }
-          // 调用该页的 getPageImage 方法获取图像
-          _pdfPagesKey[pageNumber]?.currentState?.getPageImage(
-                _viewportSize,
-                zoomLevel,
-              );
-        } else {
-          // 如果页面不可见，则清除该页的图像以节省内存
-          _pdfPagesKey[pageNumber]?.currentState?.clearPageImage();
         }
       }
-      // Render or clear images from the current page to the first page.
-      // 遍历从当前页的前一页到文档开头的所有页面
-      for (int pageNumber = _pdfViewerController.pageNumber - 1;
-          pageNumber > 0;
-          pageNumber--) {
-        final Rect pageRect = Rect.fromLTWH(
-          _scrollDirection == PdfScrollDirection.vertical
-              ? 0
-              : _pdfPages[pageNumber]!.pageOffset,
-          _scrollDirection == PdfScrollDirection.vertical
-              ? _pdfPages[pageNumber]!.pageOffset
-              : 0,
-          _pdfPages[pageNumber]!.pageSize.width,
-          _pdfPages[pageNumber]!.pageSize.height,
-        );
 
-        // 使用相同的可见性检测逻辑， 对可见页面加载图像，对不可见页面清除图像
-        if (!viewportRect.intersect(pageRect).isEmpty) {
-          _renderedImages.add(pageNumber);
-          // Set semantic text only if assistive technology is enabled.
-          if (_isAccessibilityEnabled &&
-              (_pageTextExtractor.isEmpty ||
-                  !_pageTextExtractor.containsKey(pageNumber - 1))) {
-            _pageTextExtractor[pageNumber - 1] = _pdfTextExtractor!.extractText(
-              startPageIndex: pageNumber - 1,
-            );
+      // Visible pages are never rejected by the HarmonyOS memory budget.
+      final Set<int> cachedPages = visiblePages.toSet();
+      int estimatedBytes = 0;
+      for (final int pageNumber in visiblePages) {
+        estimatedBytes += _pdfPagesKey[pageNumber]
+                ?.currentState
+                ?.estimatedPageImageBytes(zoomLevel) ??
+            0;
+      }
+
+      final List<int> neighborPages = <int>[];
+      for (int distance = 0; distance <= _pageImageCacheRadius; distance++) {
+        final List<int> candidates = distance == 0
+            ? <int>[_pdfViewerController.pageNumber]
+            : <int>[
+                _pdfViewerController.pageNumber + distance,
+                _pdfViewerController.pageNumber - distance,
+              ];
+        for (final int pageNumber in candidates) {
+          if (pageNumber < 1 ||
+              pageNumber > _pdfViewerController.pageCount ||
+              cachedPages.contains(pageNumber)) {
+            continue;
           }
-          _pdfPagesKey[pageNumber]?.currentState?.getPageImage(
-                _viewportSize,
-                zoomLevel,
-              );
-        } else {
-          _pdfPagesKey[pageNumber]?.currentState?.clearPageImage();
+          final PdfPageViewState? pageState =
+              _pdfPagesKey[pageNumber]?.currentState;
+          if (pageState == null) {
+            continue;
+          }
+          // HarmonyOS PDFium serializes page and tile rendering. Reuse only
+          // pages that are already decoded so cache fill never blocks visible work.
+          if (Platform.isOhos && !pageState.hasPageImage) {
+            continue;
+          }
+          final int pageBytes = pageState.estimatedPageImageBytes(zoomLevel);
+          if (!Platform.isOhos ||
+              estimatedBytes + pageBytes <= _ohosPageImageCacheBudgetBytes) {
+            cachedPages.add(pageNumber);
+            neighborPages.add(pageNumber);
+            estimatedBytes += pageBytes;
+          }
         }
+      }
+
+      final List<int> releasedPages = <int>[];
+      for (int pageNumber = 1;
+          pageNumber <= _pdfViewerController.pageCount;
+          pageNumber++) {
+        if (!cachedPages.contains(pageNumber)) {
+          final PdfPageViewState? pageState =
+              _pdfPagesKey[pageNumber]?.currentState;
+          if (pageState?.hasRetainedImage ?? false) {
+            releasedPages.add(pageNumber);
+          }
+          pageState?.clearPageImage();
+        }
+      }
+
+      final List<int> renderPages;
+      if (Platform.isOhos && visiblePages.length > 1) {
+        final int primaryPage = visiblePages.contains(
+          _pdfViewerController.pageNumber,
+        )
+            ? _pdfViewerController.pageNumber
+            : visiblePages.first;
+        renderPages = <int>[primaryPage];
+      } else {
+        renderPages = visiblePages;
+      }
+      _renderedImages.addAll(renderPages);
+      for (final int pageNumber in renderPages) {
+        _pdfPagesKey[pageNumber]?.currentState?.getPageImage(
+              _viewportSize,
+              zoomLevel,
+              immediate: immediate,
+            );
+      }
+      for (final int pageNumber in neighborPages) {
+        final PdfPageViewState? pageState =
+            _pdfPagesKey[pageNumber]?.currentState;
+        if (Platform.isOhos) {
+          pageState?.clearTileImage();
+        } else {
+          pageState?.getPageImage(_viewportSize, zoomLevel);
+        }
+      }
+
+      final String cacheLog =
+          'visible=${visiblePages.join(',')} render=${renderPages.join(',')} '
+          'cached=${cachedPages.join(',')} '
+          'neighbors=${neighborPages.join(',')} released=${releasedPages.join(',')} '
+          'estimatedMiB=${(estimatedBytes / (1024 * 1024)).toStringAsFixed(1)}';
+      if (cacheLog != _lastPageCacheLog) {
+        _lastPageCacheLog = cacheLog;
+        debugPrint('[Syncfusion PDF][pageCache] $cacheLog');
       }
     }
   }
@@ -4140,7 +4230,7 @@ class SfPdfViewerState extends State<SfPdfViewer> with WidgetsBindingObserver {
       // 计算总图像宽度
       double totalImageWidth =
           (lastPageInfo.pageOffset + lastPageInfo.pageSize.width) * zoomLevel;
-        // 如果滚动方向为垂直，则总图像宽度等于当前页宽度乘以缩放级别
+      // 如果滚动方向为垂直，则总图像宽度等于当前页宽度乘以缩放级别
       if (_scrollDirection == PdfScrollDirection.vertical) {
         totalImageWidth = currentPageSize.width * zoomLevel;
       }
@@ -4294,7 +4384,7 @@ class SfPdfViewerState extends State<SfPdfViewer> with WidgetsBindingObserver {
       _canInvokeOnTap &= draggedDistance.dx.abs() < kPrecisePointerHitSlop &&
           draggedDistance.dy.abs() < kPrecisePointerHitSlop;
     }
-    
+
     // 如果当前交互模式是平移模式，则设置鼠标光标为抓取状态
     if (widget.interactionMode == PdfInteractionMode.pan) {
       if (_cursor != SystemMouseCursors.grabbing) {
@@ -4408,7 +4498,7 @@ class SfPdfViewerState extends State<SfPdfViewer> with WidgetsBindingObserver {
         ?.currentState
         ?.canvasRenderBox
         ?.scrollEnded();
-        // 如果有选中的粘性便笺注释，则显示注释对话框
+    // 如果有选中的粘性便笺注释，则显示注释对话框
     if (_selectedAnnotation != null &&
         _selectedAnnotation is StickyNoteAnnotation) {
       // 如果有选中的粘性便笺注释，则显示注释对话框
@@ -4532,11 +4622,11 @@ class SfPdfViewerState extends State<SfPdfViewer> with WidgetsBindingObserver {
         _tileTimer = null;
       }
       // 检查可见页面
-      _checkVisiblePages();
+      _checkVisiblePages(immediate: immediate);
       // 延迟获取瓷砖图像
-      _tileTimer ??= Timer(
-          immediate ? Duration.zero : Durations.medium4, () async {
-        _checkVisiblePages();
+      _tileTimer ??=
+          Timer(immediate ? Duration.zero : Durations.medium4, () async {
+        _checkVisiblePages(immediate: true);
         // 获取瓷砖图像缩放级别
         final double zoomLevel = _transformationController.value[0];
         print(
@@ -5706,7 +5796,6 @@ class SfPdfViewerState extends State<SfPdfViewer> with WidgetsBindingObserver {
   /// Call the method according to property name.
   // 根据属性名称调用方法
   void _handleControllerValueChange({String? property}) {
-    print('Syncfusion PDF _handleControllerValueChange: $property');
     // 跳转到书签
     if (property == 'jumpToBookmark') {
       if (_pdfPages.isNotEmpty) {
@@ -5864,7 +5953,7 @@ class SfPdfViewerState extends State<SfPdfViewer> with WidgetsBindingObserver {
           break;
       }
     } else if (property == 'searchText') {
-      // 文本搜索   
+      // 文本搜索
       _pdfViewerController.clearSelection();
       _deselectAnnotation();
       _isSearchStarted = true;
@@ -5905,6 +5994,8 @@ class SfPdfViewerState extends State<SfPdfViewer> with WidgetsBindingObserver {
             }
           });
           _performTextSearch();
+        } else {
+          _performTextExtraction();
         }
       }
     } else if (property == 'clearFormData') {

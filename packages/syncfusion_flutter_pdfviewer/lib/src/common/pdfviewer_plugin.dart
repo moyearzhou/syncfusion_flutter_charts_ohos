@@ -12,9 +12,28 @@ class PdfViewerPlugin {
   String? _documentID;
 
   /// Initialize the PDF renderer.
-  Future<int> initializePdfRenderer(Uint8List documentBytes) async {
+  Future<int> initializePdfRenderer(
+    Uint8List documentBytes, {
+    String? filePath,
+  }) async {
     _documentID = const Uuid().v1();
-    final String? pageCount = await PdfViewerPlatform.instance
+    String? pageCount;
+    if (filePath != null) {
+      try {
+        pageCount = await PdfViewerPlatform.instance
+            .initializePdfRendererFromFile(filePath, _documentID!);
+        debugPrint(
+          '[Syncfusion PDF][initialize] direct file succeeded path=$filePath '
+          'pages=$pageCount',
+        );
+      } catch (error) {
+        debugPrint(
+          '[Syncfusion PDF][initialize] direct file failed; falling back to '
+          'bytes path=$filePath error=$error',
+        );
+      }
+    }
+    pageCount ??= await PdfViewerPlatform.instance
         .initializePdfRenderer(documentBytes, _documentID!);
     _pageCount = int.parse(pageCount!);
     return _pageCount;

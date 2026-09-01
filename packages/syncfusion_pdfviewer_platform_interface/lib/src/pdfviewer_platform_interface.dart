@@ -40,6 +40,13 @@ abstract class PdfViewerPlatform extends PlatformInterface {
         'initializePdfRenderer() has not been implemented.');
   }
 
+  /// Initializes the PDF renderer directly from a local file path.
+  Future<String?> initializePdfRendererFromFile(
+      String filePath, String documentID) async {
+    throw UnimplementedError(
+        'initializePdfRendererFromFile() has not been implemented.');
+  }
+
   /// Gets the height of all pages in the document.
   Future<List?> getPagesHeight(String documentID) async {
     throw UnimplementedError('getPagesHeight() has not been implemented.');
@@ -60,6 +67,12 @@ abstract class PdfViewerPlatform extends PlatformInterface {
   Future<Uint8List?> getPage(
       int pageNumber, int width, int height, String documentID) async {
     throw UnimplementedError('getPage() has not been implemented.');
+  }
+
+  /// Gets a BGRA page image when the platform can avoid an RGBA conversion.
+  Future<Uint8List?> getPageAsBgra(
+      int pageNumber, int width, int height, String documentID) {
+    return getPage(pageNumber, width, height, documentID);
   }
 
   /// Gets the image's bytes information of the specified portion of the page.

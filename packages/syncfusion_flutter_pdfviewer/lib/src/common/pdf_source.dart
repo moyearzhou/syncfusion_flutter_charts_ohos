@@ -135,6 +135,9 @@ class FilePDFSource extends PDFSource {
 
   late File _file;
 
+  /// Absolute or application-local path of the source PDF file.
+  String get filePath => _file.path;
+
   /// The document bytes
   Uint8List? _documentBytes;
 

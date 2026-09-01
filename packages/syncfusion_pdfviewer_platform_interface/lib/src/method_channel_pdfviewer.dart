@@ -16,6 +16,16 @@ class MethodChannelPdfViewer extends PdfViewerPlatform {
     });
   }
 
+  @override
+  Future<String?> initializePdfRendererFromFile(
+      String filePath, String documentID) async {
+    return _channel
+        .invokeMethod('initializePdfRendererFromFile', <String, dynamic>{
+      'filePath': filePath,
+      'documentID': documentID,
+    });
+  }
+
   /// Gets the height of all pages in the document.
   @override
   Future<List?> getPagesHeight(String documentID) async {
@@ -37,6 +47,17 @@ class MethodChannelPdfViewer extends PdfViewerPlatform {
       'width': width,
       'height': height,
       'documentID': documentID
+    });
+  }
+
+  @override
+  Future<Uint8List?> getPageAsBgra(
+      int pageNumber, int width, int height, String documentID) async {
+    return _channel.invokeMethod<Uint8List>('getPageAsBgra', <String, dynamic>{
+      'index': pageNumber,
+      'width': width,
+      'height': height,
+      'documentID': documentID,
     });
   }
 

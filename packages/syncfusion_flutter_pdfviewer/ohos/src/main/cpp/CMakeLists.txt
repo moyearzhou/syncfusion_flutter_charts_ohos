@@ -11,4 +11,5 @@ set_target_properties(pdfium PROPERTIES
 
 add_library(pdf_renderer SHARED pdf_renderer_napi.cpp)
 target_include_directories(pdf_renderer PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/include)
-target_link_libraries(pdf_renderer PUBLIC libace_napi.z.so pdfium)
+target_compile_options(pdf_renderer PRIVATE -O2)
+target_link_libraries(pdf_renderer PUBLIC libace_napi.z.so libhilog_ndk.z.so pdfium)

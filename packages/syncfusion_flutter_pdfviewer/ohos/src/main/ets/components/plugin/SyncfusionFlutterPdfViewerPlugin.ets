@@ -31,11 +31,20 @@ import pdfRenderer from 'libpdf_renderer.so';
 // 定义文档信息接口
 interface DocumentInfo {
   filePath: string;
+  ownsFile: boolean;
   pageCount: number;
   pdfDocument: pdfService.PdfDocument;
   pdfiumDocumentId?: number;
   pageRequestGeneration: number[];
   tileRequestGeneration: number[];
+}
+
+interface PdfiumRenderTask {
+  execute: () => Promise<Uint8Array | null>;
+  resolve: (value: Uint8Array | null) => void;
+  reject: (reason: Error) => void;
+  queuedAt: number;
+  label: string;
 }
 
 /** SyncfusionFlutterPdfViewerPlugin  **/
@@ -48,6 +57,9 @@ export default class SyncfusionFlutterPdfViewerPlugin implements FlutterPlugin, 
   private pageHeight: number[] = [];
   // Document repository.
   private documentRepo: HashMap<String, DocumentInfo> = new HashMap<String, DocumentInfo>();
+  private foregroundRenderQueue: PdfiumRenderTask[] = [];
+  private thumbnailRenderQueue: PdfiumRenderTask[] = [];
+  private isPdfiumRenderActive: boolean = false;
 
   getUniqueClassName(): string {
     return 'SyncfusionFlutterPdfViewerPlugin'
@@ -70,6 +82,9 @@ export default class SyncfusionFlutterPdfViewerPlugin implements FlutterPlugin, 
       case 'initializePdfRenderer':
         await this.initializePdfRenderer(call, result);
         break;
+      case 'initializePdfRendererFromFile':
+        this.initializePdfRendererFromFile(call, result);
+        break;
       case 'getPagesWidth':
         // 返回页面宽度数组
         this.getPagesWidth(call, result);
@@ -79,7 +94,10 @@ export default class SyncfusionFlutterPdfViewerPlugin implements FlutterPlugin, 
         this.getPagesHeight(call, result);
         break;
       case 'getPage':
-        await this.getPage(call, result);
+        await this.getPage(call, result, false);
+        break;
+      case 'getPageAsBgra':
+        await this.getPage(call, result, true);
         break;
       case 'getTileImage':
         // 实现瓦片图像渲染逻辑
@@ -117,28 +135,8 @@ export default class SyncfusionFlutterPdfViewerPlugin implements FlutterPlugin, 
       let writeLen: number = await fs.write(file.fd, buffer.buffer)
       await fs.close(file);
 
-      // 使用loadDocument接口加载pdf
-      const pdfDocument: pdfService.PdfDocument = new pdfService.PdfDocument();
-      let loadResult: pdfService.ParseResult = pdfDocument.loadDocument(filePath);
-
-      if (pdfService.ParseResult.PARSE_SUCCESS === loadResult) {
-        let pageCount: number = pdfDocument.getPageCount();
-        let pdfiumDocumentId: number | undefined;
-        try {
-          pdfiumDocumentId = pdfRenderer.openDocument(filePath);
-        } catch (error) {
-          // PDF Kit remains the fallback for full pages if PDFium cannot load a document.
-          LogUtil.error('Syncfusion PDF PDFium openDocument failed with error: ' + error);
-        }
-        // 存储文档信息
-        this.documentRepo.set(documentID, {
-          filePath: filePath,
-          pageCount: pageCount,
-          pdfDocument: pdfDocument,
-          pdfiumDocumentId: pdfiumDocumentId,
-          pageRequestGeneration: [],
-          tileRequestGeneration: []
-        });
+      const pageCount = this.openDocument(filePath, documentID, true, 'bytes');
+      if (pageCount !== null) {
         result.success(pageCount + '');
         return;
       }
@@ -147,6 +145,68 @@ export default class SyncfusionFlutterPdfViewerPlugin implements FlutterPlugin, 
       LogUtil.error('Syncfusion PDF initializePdfRenderer failed with error : ' + error);
       result.error(error.code, error.message, error);
     }
+  }
+
+  private initializePdfRendererFromFile(call: MethodCall, result: MethodResult) {
+    try {
+      const filePath: string = call.argument('filePath');
+      const documentID: string = call.argument('documentID');
+      if (!filePath || !documentID) {
+        result.error('initializePdfRendererFromFile error',
+          'Syncfusion PDF Missing required file initialization parameters', '');
+        return;
+      }
+
+      const startedAt = Date.now();
+      const pageCount = this.openDocument(filePath, documentID, false, 'file');
+      if (pageCount === null) {
+        result.error('initializePdfRendererFromFile error',
+          'Syncfusion PDF Unable to open the supplied PDF file', '');
+        return;
+      }
+      LogUtil.info(`Syncfusion PDF direct file initialized: pages=${pageCount}, ` +
+        `durationMs=${Date.now() - startedAt}, path=${filePath}`);
+      result.success(pageCount + '');
+    } catch (error) {
+      LogUtil.error('Syncfusion PDF initializePdfRendererFromFile failed with error: ' + error);
+      result.error(error.code, error.message, error);
+    }
+  }
+
+  private openDocument(
+    filePath: string,
+    documentID: string,
+    ownsFile: boolean,
+    source: string
+  ): number | null {
+    const pdfDocument: pdfService.PdfDocument = new pdfService.PdfDocument();
+    const loadResult: pdfService.ParseResult = pdfDocument.loadDocument(filePath);
+    if (pdfService.ParseResult.PARSE_SUCCESS !== loadResult) {
+      pdfDocument.releaseDocument();
+      LogUtil.error(`Syncfusion PDF PDF Kit open failed: source=${source}, result=${loadResult}`);
+      return null;
+    }
+
+    const pageCount: number = pdfDocument.getPageCount();
+    let pdfiumDocumentId: number | undefined;
+    try {
+      pdfiumDocumentId = pdfRenderer.openDocument(filePath);
+    } catch (error) {
+      // PDF Kit remains the recovery path if PDFium cannot load a document.
+      LogUtil.error('Syncfusion PDF PDFium openDocument failed with error: ' + error);
+    }
+    this.documentRepo.set(documentID, {
+      filePath: filePath,
+      ownsFile: ownsFile,
+      pageCount: pageCount,
+      pdfDocument: pdfDocument,
+      pdfiumDocumentId: pdfiumDocumentId,
+      pageRequestGeneration: [],
+      tileRequestGeneration: []
+    });
+    LogUtil.info(`Syncfusion PDF renderer initialized: source=${source}, pages=${pageCount}, ` +
+      `pdfium=${pdfiumDocumentId !== undefined}`);
+    return pageCount;
   }
 
   private getPagesWidth(call: MethodCall, result: MethodResult) {
@@ -201,7 +261,7 @@ export default class SyncfusionFlutterPdfViewerPlugin implements FlutterPlugin, 
     }
   }
 
-  private async getPage(call: MethodCall, result: MethodResult) {
+  private async getPage(call: MethodCall, result: MethodResult, outputBgra: boolean) {
     try {
       // 记录传入的参数
       const index: number = call.argument('index');
@@ -229,18 +289,23 @@ export default class SyncfusionFlutterPdfViewerPlugin implements FlutterPlugin, 
       docInfo.pageRequestGeneration[pageIndex] = requestGeneration;
       const startedAt = Date.now();
       LogUtil.info(`Syncfusion PDF PDFium page request: page=${index}, width=${outputWidth}, ` +
-        `height=${outputHeight}, generation=${requestGeneration}`);
+        `height=${outputHeight}, generation=${requestGeneration}, format=${outputBgra ? 'bgra' : 'rgba'}`);
 
       try {
         if (docInfo.pdfiumDocumentId === undefined) {
           docInfo.pdfiumDocumentId = pdfRenderer.openDocument(docInfo.filePath);
         }
-        const page = await pdfRenderer.renderPage(
-          docInfo.pdfiumDocumentId,
-          pageIndex,
-          outputWidth,
-          outputHeight,
-          requestGeneration
+        const page = await this.schedulePdfiumRender(
+          () => pdfRenderer.renderPage(
+            docInfo.pdfiumDocumentId as number,
+            pageIndex,
+            outputWidth,
+            outputHeight,
+            requestGeneration,
+            outputBgra
+          ),
+          outputBgra,
+          `page=${index} size=${outputWidth}x${outputHeight} format=${outputBgra ? 'bgra' : 'rgba'}`
         );
         if (page === null) {
           LogUtil.info(`Syncfusion PDF PDFium page superseded: page=${index}, ` +
@@ -254,7 +319,7 @@ export default class SyncfusionFlutterPdfViewerPlugin implements FlutterPlugin, 
         result.success(page);
         return;
       } catch (error) {
-        // Keep PDF Kit only as a recovery path. Its BGRA bytes are normalized to the RGBA getPage contract.
+        // Keep PDF Kit as a recovery path and preserve the requested pixel contract.
         LogUtil.error(`Syncfusion PDF PDFium page failed, using PDF Kit: page=${index}, error=${error}`);
       }
 
@@ -262,7 +327,8 @@ export default class SyncfusionFlutterPdfViewerPlugin implements FlutterPlugin, 
         docInfo,
         pageIndex,
         outputWidth,
-        outputHeight
+        outputHeight,
+        outputBgra
       );
       LogUtil.info(`Syncfusion PDF PDF Kit fallback rendered: page=${index}, width=${outputWidth}, ` +
         `height=${outputHeight}, generation=${requestGeneration}, durationMs=${Date.now() - startedAt}, ` +
@@ -309,15 +375,19 @@ export default class SyncfusionFlutterPdfViewerPlugin implements FlutterPlugin, 
       const startedAt = Date.now();
       LogUtil.info(`Syncfusion PDF PDFium tile request: page=${pageNumber}, width=${Math.floor(width)}, ` +
         `height=${Math.floor(height)}, scale=${scale}, generation=${requestGeneration}`);
-      const tile = await pdfRenderer.renderTile(
-        docInfo.pdfiumDocumentId,
-        pageIndex,
-        x,
-        y,
-        Math.floor(width),
-        Math.floor(height),
-        scale,
-        requestGeneration
+      const tile = await this.schedulePdfiumRender(
+        () => pdfRenderer.renderTile(
+          docInfo.pdfiumDocumentId as number,
+          pageIndex,
+          x,
+          y,
+          Math.floor(width),
+          Math.floor(height),
+          scale,
+          requestGeneration
+        ),
+        true,
+        `tile page=${pageNumber} size=${Math.floor(width)}x${Math.floor(height)}`
       );
       if (tile === null) {
         LogUtil.info(`Syncfusion PDF PDFium tile superseded: page=${pageNumber}, ` +
@@ -335,6 +405,54 @@ export default class SyncfusionFlutterPdfViewerPlugin implements FlutterPlugin, 
     }
   }
 
+  private schedulePdfiumRender(
+    execute: () => Promise<Uint8Array | null>,
+    foreground: boolean,
+    label: string
+  ): Promise<Uint8Array | null> {
+    return new Promise<Uint8Array | null>((resolve, reject) => {
+      const task: PdfiumRenderTask = {
+        execute: execute,
+        resolve: resolve,
+        reject: reject,
+        queuedAt: Date.now(),
+        label: label
+      };
+      if (foreground) {
+        this.foregroundRenderQueue.push(task);
+      } else {
+        this.thumbnailRenderQueue.push(task);
+      }
+      this.drainPdfiumRenderQueue();
+    });
+  }
+
+  private async drainPdfiumRenderQueue(): Promise<void> {
+    if (this.isPdfiumRenderActive) {
+      return;
+    }
+    const task = this.foregroundRenderQueue.shift() ?? this.thumbnailRenderQueue.shift();
+    if (!task) {
+      return;
+    }
+
+    this.isPdfiumRenderActive = true;
+    const queueDuration = Date.now() - task.queuedAt;
+    if (queueDuration > 0) {
+      LogUtil.info(`Syncfusion PDF render dispatch: ${task.label}, queueMs=${queueDuration}, ` +
+        `foregroundPending=${this.foregroundRenderQueue.length}, ` +
+        `thumbnailPending=${this.thumbnailRenderQueue.length}`);
+    }
+    try {
+      task.resolve(await task.execute());
+    } catch (error) {
+      task.reject(error as Error);
+    } finally {
+      this.isPdfiumRenderActive = false;
+      this.drainPdfiumRenderQueue();
+    }
+  }
+
   // 将 pixelMap 转成图片格式  低版本
   private async pixelMap2Buffer(pixelMap: image.PixelMap): Promise<Uint8Array> {
     const byteCount = pixelMap.getPixelBytesNumber();
@@ -347,7 +465,8 @@ export default class SyncfusionFlutterPdfViewerPlugin implements FlutterPlugin, 
     docInfo: DocumentInfo,
     pageIndex: number,
     width: number,
-    height: number
+    height: number,
+    outputBgra: boolean
   ): Promise<Uint8Array> {
     const pdfPage: pdfService.PdfPage = docInfo.pdfDocument.getPage(pageIndex);
     const pdfMatrix: pdfService.PdfMatrix = new pdfService.PdfMatrix();
@@ -361,10 +480,12 @@ export default class SyncfusionFlutterPdfViewerPlugin implements FlutterPlugin, 
     const bgraBytes = await this.pixelMap2Buffer(pixelMap);
     pdfPage.release();
     await pixelMap.release();
-    for (let offset = 0; offset < bgraBytes.length; offset += 4) {
-      const blue = bgraBytes[offset];
-      bgraBytes[offset] = bgraBytes[offset + 2];
-      bgraBytes[offset + 2] = blue;
+    if (!outputBgra) {
+      for (let offset = 0; offset < bgraBytes.length; offset += 4) {
+        const blue = bgraBytes[offset];
+        bgraBytes[offset] = bgraBytes[offset + 2];
+        bgraBytes[offset + 2] = blue;
+      }
     }
     return bgraBytes;
   }
@@ -379,8 +500,9 @@ export default class SyncfusionFlutterPdfViewerPlugin implements FlutterPlugin, 
           if (docInfo.pdfiumDocumentId !== undefined) {
             pdfRenderer.closeDocument(docInfo.pdfiumDocumentId);
           }
-          // 删除临时文件
-          fs.unlinkSync(docInfo.filePath);
+          if (docInfo.ownsFile) {
+            fs.unlinkSync(docInfo.filePath);
+          }
           // 释放pdf 重置宽度高度集合
           docInfo.pdfDocument.releaseDocument();
           this.pageWidth = [];

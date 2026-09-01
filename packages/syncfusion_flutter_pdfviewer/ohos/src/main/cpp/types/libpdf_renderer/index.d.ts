@@ -6,7 +6,8 @@ interface PdfRenderer {
     pageIndex: number,
     width: number,
     height: number,
-    requestGeneration: number
+    requestGeneration: number,
+    outputBgra: boolean
   ): Promise<Uint8Array | null>;
   renderTile(
     documentId: number,

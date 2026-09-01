@@ -259,11 +259,15 @@ class PdfPageViewState extends State<PdfPageView> {
   RawImage? _tileImage;
   CancelableOperation<Uint8List?>? _tileImageOperation;
   CancelableOperation<Uint8List?>? _pageImageOperation;
+  int _pageImageRequestWidth = 0;
+  int _pageImageRequestHeight = 0;
   Timer? _pageTimer;
   TileImage? _tileImageCache;
   double _dpr = 1.0;
   int _pageImageGeneration = 0;
   int _tileImageGeneration = 0;
+  String? _tileImageRequestKey;
+  String? _displayedTileImageRequestKey;
   int _numberOfActivePointers = 0;
   bool _isZooming = false;
 
@@ -292,8 +296,6 @@ class PdfPageViewState extends State<PdfPageView> {
 
   @override
   void dispose() {
-    PaintingBinding.instance.imageCache.clear();
-    PaintingBinding.instance.imageCache.clearLiveImages();
     clearPageImage(dispose: true);
     focusNode.dispose();
     _pdfViewerThemeData = null;
@@ -320,11 +322,6 @@ class PdfPageViewState extends State<PdfPageView> {
             : 0.0;
     if (_pdfPage != null) {
       _calculateHeightPercentage();
-      if (!kIsDesktop) {
-        PaintingBinding.instance.imageCache.clear();
-        PaintingBinding.instance.imageCache.clearLiveImages();
-      }
-
       final Widget pdfPage = Container(
         height: widget.height + heightSpacing,
         width: widget.width + widthSpacing,
@@ -890,10 +887,13 @@ class PdfPageViewState extends State<PdfPageView> {
     final double imageFactor = ratio * zoomLevel;
     if (widget.pdfDocument != null && _previousImageFactor != imageFactor) {
       _previousImageFactor = imageFactor;
-      if (ratio < 0.5 ||
+      // HarmonyOS already renders the base page at device-pixel resolution.
+      // At 1x, an additional tile duplicates PDFium work on its serial queue.
+      final bool shouldUseTile = ratio < 0.5 ||
           zoomLevel > 1.75 ||
           (!kIsDesktop && imageFactor > 2) ||
-          (kIsDesktop && imageFactor > 4)) {
+          (kIsDesktop && imageFactor > 4);
+      if (shouldUseTile) {
         _isTile = true;
         if (_pdfPage != null) {
           return;
@@ -930,6 +930,26 @@ class PdfPageViewState extends State<PdfPageView> {
 
       final int requestWidth = _imageWidth;
       final int requestHeight = _imageHeight;
+      if (Platform.isOhos && shouldUseTile) {
+        final ui.Image? pageImage = _pdfPage?.image;
+        if (pageImage?.width == requestWidth &&
+            pageImage?.height == requestHeight) {
+          print(
+            '[Syncfusion PDF][page] reused page=${widget.pageIndex + 1} '
+            'size=${requestWidth}x$requestHeight source=displayed',
+          );
+          return;
+        }
+        if (_pageImageOperation != null &&
+            _pageImageRequestWidth == requestWidth &&
+            _pageImageRequestHeight == requestHeight) {
+          print(
+            '[Syncfusion PDF][page] reused page=${widget.pageIndex + 1} '
+            'size=${requestWidth}x$requestHeight source=inFlight',
+          );
+          return;
+        }
+      }
       final int requestGeneration = ++_pageImageGeneration;
       final Stopwatch stopwatch = Stopwatch()..start();
       print(
@@ -941,14 +961,23 @@ class PdfPageViewState extends State<PdfPageView> {
         await _pageImageOperation?.cancel();
         final CancelableOperation<Uint8List?> operation =
             CancelableOperation<Uint8List?>.fromFuture(
-          PdfViewerPlatform.instance.getPage(
-            widget.pageIndex + 1,
-            requestWidth,
-            requestHeight,
-            widget.documentID,
-          ),
+          Platform.isOhos
+              ? PdfViewerPlatform.instance.getPageAsBgra(
+                  widget.pageIndex + 1,
+                  requestWidth,
+                  requestHeight,
+                  widget.documentID,
+                )
+              : PdfViewerPlatform.instance.getPage(
+                  widget.pageIndex + 1,
+                  requestWidth,
+                  requestHeight,
+                  widget.documentID,
+                ),
         );
         _pageImageOperation = operation;
+        _pageImageRequestWidth = requestWidth;
+        _pageImageRequestHeight = requestHeight;
         final Uint8List? pageImage = await operation.valueOrCancellation();
         if (pageImage == null || requestGeneration != _pageImageGeneration) {
           print(
@@ -957,11 +986,17 @@ class PdfPageViewState extends State<PdfPageView> {
           );
           return;
         }
+        final int nativeAndChannelMs = stopwatch.elapsedMilliseconds;
+        final Stopwatch decodeStopwatch = Stopwatch()..start();
         final ui.Image image = await _createImage(
           pageImage,
           requestWidth,
           requestHeight,
+          pixelFormat: Platform.isOhos
+              ? ui.PixelFormat.bgra8888
+              : ui.PixelFormat.rgba8888,
         );
+        final int decodeMs = decodeStopwatch.elapsedMilliseconds;
         if (!mounted || requestGeneration != _pageImageGeneration) {
           image.dispose();
           return;
@@ -974,6 +1009,7 @@ class PdfPageViewState extends State<PdfPageView> {
         print(
           '[Syncfusion PDF][page] displayed page=${widget.pageIndex + 1} '
           'size=${requestWidth}x$requestHeight generation=$requestGeneration '
+          'nativeAndChannelMs=$nativeAndChannelMs decodeMs=$decodeMs '
           'durationMs=${stopwatch.elapsedMilliseconds}',
         );
       } catch (error) {
@@ -984,6 +1020,8 @@ class PdfPageViewState extends State<PdfPageView> {
       } finally {
         if (requestGeneration == _pageImageGeneration) {
           _pageImageOperation = null;
+          _pageImageRequestWidth = 0;
+          _pageImageRequestHeight = 0;
         }
       }
     }
@@ -1138,13 +1176,32 @@ class PdfPageViewState extends State<PdfPageView> {
       double ratio = 1 / _heightPercentage;
       ratio = ratio < 1 && kIsDesktop ? 1 : ratio;
       if (zoomLevel == transformationController.value[0]) {
+        final Size tileImageSize = Size(
+          exposed.width * _dpr * ratio,
+          exposed.height * _dpr * ratio,
+        );
+        final String requestKey = <Object>[
+          zoomLevel.toStringAsFixed(4),
+          (exposed.left / zoomLevel).toStringAsFixed(3),
+          (exposed.top / zoomLevel).toStringAsFixed(3),
+          tileImageSize.width.toInt(),
+          tileImageSize.height.toInt(),
+        ].join(':');
+        if (Platform.isOhos &&
+            ((_tileImageOperation != null &&
+                    _tileImageRequestKey == requestKey) ||
+                (_tileImage != null &&
+                    _displayedTileImageRequestKey == requestKey))) {
+          debugPrint(
+            '[Syncfusion PDF][tile] reused page=${widget.pageIndex + 1} '
+            'source=${_tileImageOperation != null ? 'inFlight' : 'displayed'}',
+          );
+          return;
+        }
+
         final int requestGeneration = ++_tileImageGeneration;
         final Stopwatch stopwatch = Stopwatch()..start();
         try {
-          final Size tileImageSize = Size(
-            exposed.width * _dpr * ratio,
-            exposed.height * _dpr * ratio,
-          );
           print(
             '[Syncfusion PDF][tile] request page=${widget.pageIndex + 1} '
             'size=${tileImageSize.width.toInt()}x${tileImageSize.height.toInt()} '
@@ -1164,6 +1221,7 @@ class PdfPageViewState extends State<PdfPageView> {
             ),
           );
           _tileImageOperation = operation;
+          _tileImageRequestKey = requestKey;
           final Uint8List? tileImage = await operation.valueOrCancellation();
           if (tileImage == null ||
               requestGeneration != _tileImageGeneration ||
@@ -1174,6 +1232,8 @@ class PdfPageViewState extends State<PdfPageView> {
             );
             return;
           }
+          final int nativeAndChannelMs = stopwatch.elapsedMilliseconds;
+          final Stopwatch decodeStopwatch = Stopwatch()..start();
           final ui.Image image = await _createImage(
             tileImage,
             tileImageSize.width.toInt(),
@@ -1182,6 +1242,7 @@ class PdfPageViewState extends State<PdfPageView> {
                 ? ui.PixelFormat.bgra8888
                 : ui.PixelFormat.rgba8888,
           );
+          final int decodeMs = decodeStopwatch.elapsedMilliseconds;
           if (!mounted ||
               requestGeneration != _tileImageGeneration ||
               zoomLevel != transformationController.value[0]) {
@@ -1206,12 +1267,14 @@ class PdfPageViewState extends State<PdfPageView> {
               height: tileImageSize.height,
               fit: BoxFit.fill,
             );
+            _displayedTileImageRequestKey = requestKey;
           });
           oldTileImage?.dispose();
           print(
             '[Syncfusion PDF][tile] displayed page=${widget.pageIndex + 1} '
             'size=${tileImageSize.width.toInt()}x${tileImageSize.height.toInt()} '
-            'generation=$requestGeneration durationMs=${stopwatch.elapsedMilliseconds}',
+            'generation=$requestGeneration nativeAndChannelMs=$nativeAndChannelMs '
+            'decodeMs=$decodeMs durationMs=${stopwatch.elapsedMilliseconds}',
           );
         } catch (error) {
           print(
@@ -1221,6 +1284,7 @@ class PdfPageViewState extends State<PdfPageView> {
         } finally {
           if (requestGeneration == _tileImageGeneration) {
             _tileImageOperation = null;
+            _tileImageRequestKey = null;
           }
         }
       }
@@ -1228,9 +1292,18 @@ class PdfPageViewState extends State<PdfPageView> {
   }
 
   /// Get the page image
-  void getPageImage(Size viewportSize, double zoomLevel) {
-    _pageTimer ??= Timer(Durations.short2, () {
+  void getPageImage(
+    Size viewportSize,
+    double zoomLevel, {
+    bool immediate = false,
+  }) {
+    if (immediate && _pageTimer != null) {
+      _pageTimer!.cancel();
+      _pageTimer = null;
+    }
+    _pageTimer ??= Timer(immediate ? Duration.zero : Durations.short4, () {
       if (widget.pdfPages.isEmpty) {
+        _pageTimer = null;
         return;
       }
       _getImage(viewportSize, zoomLevel).then((_) {
@@ -1240,19 +1313,67 @@ class PdfPageViewState extends State<PdfPageView> {
     });
   }
 
+  /// Estimated RGBA memory used by this page at the requested zoom level.
+  int estimatedPageImageBytes(double zoomLevel) {
+    final ui.Image? pageImage = _pdfPage?.image;
+    if (pageImage != null) {
+      return pageImage.width * pageImage.height * 4;
+    }
+    final Size imageSize = Platform.isOhos
+        ? _resolveOhosPageImageSize(
+            zoomLevel,
+            tileMode: zoomLevel > 1.75,
+          )
+        : Size(
+            widget.width * zoomLevel * _dpr, widget.height * zoomLevel * _dpr);
+    return imageSize.width.toInt() * imageSize.height.toInt() * 4;
+  }
+
+  /// Current decoded RGBA memory retained by the base page and tile images.
+  int get retainedImageBytes {
+    final ui.Image? pageImage = _pdfPage?.image;
+    final ui.Image? tileImage = _tileImage?.image;
+    return (pageImage == null ? 0 : pageImage.width * pageImage.height * 4) +
+        (tileImage == null ? 0 : tileImage.width * tileImage.height * 4);
+  }
+
+  /// Whether this state currently retains a decoded page or tile image.
+  bool get hasRetainedImage => _pdfPage != null || _tileImage != null;
+
+  /// Whether this state currently retains a decoded base page image.
+  bool get hasPageImage => _pdfPage != null;
+
+  /// Releases zoom detail while retaining the reusable base page image.
+  void clearTileImage() {
+    final bool hasTileImage = _tileImage != null;
+    _tileImageGeneration += 1;
+    _tileImage?.image?.dispose();
+    if (hasTileImage && mounted) {
+      setState(() {
+        _tileImage = null;
+      });
+    } else {
+      _tileImage = null;
+    }
+    _tileImageOperation?.cancel();
+    _tileImageOperation = null;
+    _tileImageCache = null;
+    _tileImageRequestKey = null;
+    _displayedTileImageRequestKey = null;
+  }
+
   /// Clear the page image
   void clearPageImage({bool dispose = false}) {
+    final bool hasImage = hasRetainedImage;
     _pageImageGeneration += 1;
     _tileImageGeneration += 1;
     _pdfPage?.image?.dispose();
     _tileImage?.image?.dispose();
-    if (!dispose) {
-      if (mounted) {
-        setState(() {
-          _pdfPage = null;
-          _tileImage = null;
-        });
-      }
+    if (!dispose && hasImage && mounted) {
+      setState(() {
+        _pdfPage = null;
+        _tileImage = null;
+      });
     } else {
       _pdfPage = null;
       _tileImage = null;
@@ -1261,7 +1382,11 @@ class PdfPageViewState extends State<PdfPageView> {
     _pageImageOperation?.cancel();
     _tileImageOperation = null;
     _pageImageOperation = null;
+    _pageImageRequestWidth = 0;
+    _pageImageRequestHeight = 0;
     _tileImageCache = null;
+    _tileImageRequestKey = null;
+    _displayedTileImageRequestKey = null;
     _pageTimer?.cancel();
     _pageTimer = null;
     _isTile = false;
